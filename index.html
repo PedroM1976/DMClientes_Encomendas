@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#102a43" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="DM Comercial" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <title>Domingos & Morgado — Gestão Comercial</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <section id="login-screen" class="login-screen">
+    <div class="login-card"><img class="login-logo-image" src="" alt="Domingos & Morgado" /><h1>Bem-vindo</h1><p>Entre na Gestão Comercial</p><form id="login-form"><label>E-mail<input type="email" name="email" required /></label><label>Palavra-passe<input type="password" name="password" required /></label><button type="submit" class="primary" onclick="document.querySelector('#login-message').textContent='A processar...'">Entrar</button><button type="button" id="forgot-password" class="link-button">Esqueci-me da palavra-passe</button><div id="login-message"></div></form></div>
+  </section>
+  <header class="topbar" id="app-header" style="display:none">
+    <div class="brand"><img class="brand-logo" style="width:48px;height:48px;object-fit:contain;border-radius:10px" src="" alt="Domingos & Morgado" /><div><strong>Domingos & Morgado</strong></div></div>
+    <div class="user-badge">PM <span>Administrador</span></div>
+  </header>
+  <div class="layout" id="app-layout" style="display:none">
+    <aside class="sidebar">
+      <button class="nav active" data-view="dashboard">⌂ <span>Dashboard</span></button>
+      <button class="nav" data-view="clients">♙ <span>Clientes</span></button>
+      <button class="nav" data-view="new-client">＋ <span>Nova ficha de cliente</span></button>
+      <button class="nav" data-view="articles">▦ <span>Artigos</span></button>
+      <button class="nav" data-view="orders">▤ <span>Encomendas</span></button>
+      <button class="nav" data-view="new-order">＋ <span>Nova encomenda</span></button>
+      <button class="nav" data-view="history">▤ <span>Histórico</span></button>
+      <button class="nav" data-view="users">⚙ <span>Administração</span></button>
+      <div class="sidebar-foot">Fase 1 · Clientes</div>
+    </aside>
+    <main id="app"></main>
+  </div>
+  <script src="config.js"></script>
+  <script src="logo.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+  <script src="orders.js"></script>
+  <script src="clients.js"></script>
+  <script src="articles.js"></script>
+  <script src="order-print.js"></script>
+  <script src="history.js"></script>
+  <script src="visibility.js"></script>
+  <script src="permissions.js"></script>
+  <link rel="stylesheet" href="clients.css" />
+  <link rel="stylesheet" href="mobile.css" />
+  <script src="mobile.js"></script>
+</body>
+</html>
