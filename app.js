@@ -91,6 +91,9 @@ function inactiveValue(value){ return value===true || ['true','sim','yes','1'].i
 
 document.querySelectorAll('.nav').forEach(b => b.addEventListener('click', () => { if(b.dataset.view === 'new-order'){ document.querySelectorAll('.nav').forEach(x => x.classList.toggle('active', x === b)); startOrder(); return; } if(b.dataset.view === 'history'){ document.querySelectorAll('.nav').forEach(x => x.classList.toggle('active', x === b)); openHistory(); return; } state.view = b.dataset.view; document.querySelectorAll('.nav').forEach(x => x.classList.toggle('active', x === b)); render(); }));
 function render() {
+  document.body.classList.remove('mobile-menu-open');
+  document.querySelector('.mobile-menu-button')?.setAttribute('aria-expanded','false');
+  if(state.view!=='new-order')document.body.classList.remove('order-wide-mode');
   const views = { dashboard: dashboard, clients: clients, 'new-client': newClient, articles: articles, orders: orders, 'new-order': newOrder, users: administration, history: () => historyView() };
   app.innerHTML = (views[state.view] || dashboard)();
   if (state.clientLoadMessage) showClientLoadStatus(state.clientLoadMessage);

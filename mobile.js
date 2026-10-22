@@ -6,9 +6,12 @@
   const sidebar=document.querySelector('.sidebar');sidebar.id='mobile-navigation';
   const menu=tools.querySelector('.mobile-menu-button');
   function closeMenu(){document.body.classList.remove('mobile-menu-open');menu.setAttribute('aria-expanded','false');}
+  window.resetAppMenus=()=>{closeMenu();document.body.classList.remove('order-wide-mode');};
   menu.onclick=()=>{const open=document.body.classList.toggle('mobile-menu-open');menu.setAttribute('aria-expanded',String(open));};
   sidebar.addEventListener('click',e=>{if(e.target.closest('.nav')){closeMenu();window.scrollTo({top:0,behavior:'smooth'});}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+  window.addEventListener('pageshow',closeMenu);
+  window.addEventListener('focus',closeMenu);
   const notice=document.createElement('p');notice.className='connection-notice';notice.setAttribute('role','status');
   tools.after(notice);
   function connection(){notice.hidden=navigator.onLine;notice.textContent='Sem ligação à Internet. Não é possível carregar ou guardar no Supabase. Os dados que escrever não são guardados automaticamente.';}

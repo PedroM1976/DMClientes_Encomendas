@@ -10,6 +10,11 @@ function paymentTermsChanged() {
   if(state.orderDraft.paymentTerms!=='PAGAMENTO PARCIAL')state.orderDraft.paymentInstallments='';
   render();
 }
+function toggleOrderWide(){
+  const expanded=document.body.classList.toggle('order-wide-mode');
+  const button=document.querySelector('#toggle-order-wide');
+  if(button)button.textContent=expanded?'Repor área':'Ampliar encomenda';
+}
 function normalizeOrder(row) {
   return {...(row.document || {}), ...row, clientName:row.client_name || row.clientName || '',
     paymentTerms:row.payment_terms || row.paymentTerms || '', lines:row.document?.lines || row.lines || []};
@@ -69,7 +74,7 @@ newOrder = function() {
   const d=state.orderDraft, totals=orderAmounts(state.orderLines);
   const missingPrices=state.orderLines.some(l=>!Number.isFinite(l.price));
   const input=(name,label,type='text')=>`<label>${label}<input type="${type}" name="${name}" value="${esc(d[name]||'')}" required></label>`;
-  return `<section class="page"><h1>Nova encomenda</h1><p>Todos os dados da encomenda são obrigatórios, exceto as assinaturas. Pesquise clientes e artigos sem percorrer listas extensas.</p>
+  return `<section class="page order-page"><div class="order-page-head"><h1>Nova encomenda</h1><button type="button" class="secondary" id="toggle-order-wide" onclick="toggleOrderWide()">${document.body.classList.contains('order-wide-mode')?'Repor área':'Ampliar encomenda'}</button></div><p>Todos os dados da encomenda são obrigatórios, exceto as assinaturas. Pesquise clientes e artigos sem percorrer listas extensas.</p>
   <form id="order-form" class="panel form" oninput="captureOrder()">
   <div class="form-grid"><label>Base de clientes<select name="source" onchange="changeOrderSource(this.value)">
   <option value="crm_clients" ${d.source!=='crm_clients_import'?'selected':''}>CRM</option>
@@ -78,8 +83,8 @@ newOrder = function() {
   <div id="order-client-results" class="full-field">${orderClientSearchResults(state.clientQuery||'')}</div>
   ${input('clientName','Nome do cliente *')}${input('nif','NIF *')}${input('delivery','Morada de entrega *')}
   <div class="payment-group"><label>Condições de pagamento *${businessSelect('paymentTerms',['30 DIAS','30 DIAS DATA FATURA','PP','PAGAMENTO PARCIAL'],d.paymentTerms||'',true,'paymentTermsChanged()')}</label>
-  ${d.paymentTerms==='PAGAMENTO PARCIAL'?`<label>Parcelas de pagamento *<textarea name="paymentInstallments" required placeholder="Ex.: 1.ª parcela: 50% na adjudicação; 2.ª parcela: 50% na entrega. Indique valores ou percentagens e datas.">${esc(d.paymentInstallments||'')}</textarea></label>`:''}</div>
-  <label>Meio de pagamento *${businessSelect('paymentMethod',['CHEQUE','NUMERÁRIO','TRANSFERÊNCIA BANCÁRIA','LÍQUIDO - GRENKE','LEASING PRÓPRIO'],d.paymentMethod||'',true)}</label>
+  ${d.paymentTerms==='PAGAMENTO PARCIAL'?`<label>Observações do pagamento parcial *<textarea name="paymentInstallments" required placeholder="Indique obrigatoriamente as parcelas, valores ou percentagens e respetivas datas.">${esc(d.paymentInstallments||'')}</textarea></label>`:''}</div>
+  <label>Meio de pagamento *${businessSelect('paymentMethod',['CHEQUE','NUMERÁRIO','TRANSFERÊNCIA BANCÁRIA','LÍQUIDO','GRENKE','LEASING PRÓPRIO'],d.paymentMethod||'',true)}</label>
   ${input('deliveryDate','Data de entrega *','date')}
   </div>
   <label class="order-notes">Observações *<textarea name="notes" required placeholder="Informações de entrega, instruções ou outros detalhes...">${esc(d.notes||'')}</textarea></label>
@@ -144,7 +149,7 @@ function validateOrder(d,lines) {
   const missing=required.filter(([key])=>!String(d[key]||'').trim()).map(([,label])=>label);
   if(missing.length)throw Error('Preencha: '+missing.join(', ')+'.');
   if(d.paymentTerms==='PAGAMENTO PARCIAL'&&!d.paymentInstallments?.trim())
-    throw Error('Indique as parcelas do pagamento parcial.');
+    throw Error('Preencha as observações do pagamento parcial.');
   if (!lines.length) throw Error('Adicione pelo menos um artigo ou uma linha manual.');
   for (const l of lines) {
     if (!String(l.code||'').trim()) throw Error('Preencha o código de todas as linhas.');

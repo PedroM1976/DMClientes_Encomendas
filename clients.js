@@ -30,7 +30,7 @@ newClient = function() {
   <label>Telemóvel *<input name="mobile" inputmode="tel" required></label>
   <label>E-mail *<input type="email" name="email" required></label>
   <label>Actividade *<input name="activity" required></label>
-  <label>CAE *<input name="cae" inputmode="numeric" pattern="[0-9]+" required><small>Apenas algarismos; aceita 0000.</small></label>
+  <label>CAE *<input name="cae" inputmode="numeric" pattern="[0-9]+" required></label>
   <label>Banco *<input name="bank" required></label>
   <label>Condições de pagamento *${businessSelect('paymentTerms',['30 DIAS','30 DIAS DATA FATURA','PP'],'',true)}</label>
   <label>Meio de pagamento *${businessSelect('paymentMethod',['CHEQUE','NUMERÁRIO','TRANSFERÊNCIA BANCÁRIA'],'',true)}</label>
@@ -40,11 +40,14 @@ newClient = function() {
   </div>
   <h2 class="section-title">Contactos</h2><div class="form-grid extra">
   <label>Pessoa de contacto *<input name="contact" required></label>
-  <label>Contacto da pessoa<input name="contactPhone" placeholder="Telefone ou e-mail"></label>
+  <label>Telefone da pessoa de contacto *<input name="contactPhone" inputmode="tel" required></label>
+  <label>E-mail da pessoa de contacto *<input type="email" name="contactEmail" required></label>
   <label>Responsável financeiro *<input name="financialResponsible" required></label>
-  <label>Contacto financeiro *<input name="financialContact" placeholder="Telefone ou e-mail" required></label>
+  <label>Telefone do responsável financeiro *<input name="financialPhone" inputmode="tel" required></label>
+  <label>E-mail do responsável financeiro *<input type="email" name="financialEmail" required></label>
   <label>Responsável de compras<input name="purchasingResponsible"></label>
-  <label>Contacto de compras<input name="purchasingContact" placeholder="Telefone ou e-mail"></label>
+  <label>Telefone do responsável de compras<input name="purchasingPhone" inputmode="tel"></label>
+  <label>E-mail do responsável de compras<input type="email" name="purchasingEmail"></label>
   </div>
   <details><summary>Mais informações</summary><div class="form-grid extra">
   <label>Balcão<input name="branch"></label><label>NIB<input name="nib"></label>
@@ -68,11 +71,14 @@ function clientFields(c) {
     ['Meio de pagamento',c.payment_method||c.paymentMethod||x.paymentMethod],
     ['Vendedor',c.owner_name||c.seller||x.seller],['Grupo de cliente',c.clientGroup||x.clientGroup],
     ['Associado',c.associate||x.associate],['Pessoa de contacto',c.contact||x.contact],
-    ['Contacto da pessoa',c.contact_phone||c.contactPhone||x.contactPhone],
+    ['Telefone da pessoa de contacto',c.contact_phone||c.contactPhone||x.contactPhone],
+    ['E-mail da pessoa de contacto',c.contactEmail||x.contactEmail],
     ['Responsável financeiro',c.financialResponsible||x.financialResponsible],
-    ['Contacto financeiro',c.financialContact||x.financialContact],
+    ['Telefone do responsável financeiro',c.financialPhone||x.financialPhone||c.financialContact||x.financialContact],
+    ['E-mail do responsável financeiro',c.financialEmail||x.financialEmail],
     ['Responsável de compras',c.purchasingResponsible||x.purchasingResponsible],
-    ['Contacto de compras',c.purchasingContact||x.purchasingContact],
+    ['Telefone do responsável de compras',c.purchasingPhone||x.purchasingPhone||c.purchasingContact||x.purchasingContact],
+    ['E-mail do responsável de compras',c.purchasingEmail||x.purchasingEmail],
     ['Balcão',c.branch||x.branch],['NIB',c.nib||x.nib],['Observações',c.notes],
     ['Ficha criada por',x.created_by_email||'Não registado'],['Data de criação',c.created_at?new Date(c.created_at).toLocaleString('pt-PT'):'']
   ];
@@ -82,7 +88,7 @@ function clientPrintHTML(c) {
   const fields=clientFields(c);
   const logo=typeof LOGO_DM!=='undefined'?LOGO_DM:'';
   return `<!doctype html><html lang="pt-PT"><head><meta charset="utf-8"><title>Ficha de cliente - ${esc(c.name||'')}</title>
-  <style>@page{size:A4 landscape;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font:8.5px Arial;color:#1f2933}header{display:flex;align-items:center;gap:15px;border-bottom:2px solid #1677b8;padding:0 0 6px}header img{width:105px;height:38px;object-fit:contain}header h1{margin:0 0 2px;font-size:16px;color:#102a43}header p{margin:2px 0}h2{font-size:10px;margin:7px 0 3px;border-bottom:1px solid #ddd;padding-bottom:2px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 8px}.field{border-bottom:1px solid #e5e7eb;padding:3px 4px;min-height:27px;break-inside:avoid}.label{color:#718096;font-size:7px;font-weight:bold;text-transform:uppercase}.value{margin-top:2px;min-height:9px;line-height:1.15;overflow-wrap:anywhere;white-space:pre-wrap}.sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:4px;break-inside:avoid}.line{border-top:1px solid #555;padding-top:3px;margin-top:18px}.print-help{padding:7px;background:#edf3f7;margin-bottom:7px;font-size:11px}@media print{.print-help{display:none}body{width:100%;height:auto}}</style></head><body>
+  <style>@page{size:A4 portrait;margin:7mm}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font:8px Arial;color:#1f2933}header{display:flex;align-items:center;gap:12px;border-bottom:2px solid #1677b8;padding:0 0 5px}header img{width:92px;height:34px;object-fit:contain}header h1{margin:0 0 2px;font-size:15px;color:#102a43}header p{margin:1px 0}h2{font-size:9px;margin:6px 0 2px;border-bottom:1px solid #ddd;padding-bottom:2px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px 7px}.field{border-bottom:1px solid #e5e7eb;padding:2px 3px;min-height:23px;break-inside:avoid}.label{color:#718096;font-size:6.5px;font-weight:bold;text-transform:uppercase}.value{margin-top:1px;min-height:8px;line-height:1.1;overflow-wrap:anywhere;white-space:pre-wrap}.sign{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:3px;break-inside:avoid}.line{border-top:1px solid #555;padding-top:2px;margin-top:15px}.print-help{padding:6px;background:#edf3f7;margin-bottom:6px;font-size:10px}@media print{.print-help{display:none}body{width:100%;height:auto}}</style></head><body>
   <div class="print-help"><button onclick="window.print()">Imprimir / Guardar como PDF</button> Escolha Guardar como PDF na janela de impressão.</div>
   <header>${logo?`<img src="${logo}" alt="Domingos &amp; Morgado">`:''}<div><h1>Ficha de cliente</h1><strong>Domingos &amp; Morgado</strong><p>${new Date().toLocaleDateString('pt-PT')}</p></div></header>
   <h2>Dados do cliente</h2><div class="grid">${fields.map(([label,value])=>`<div class="field"><div class="label">${esc(label)}</div><div class="value">${esc(value||'—')}</div></div>`).join('')}</div>
@@ -107,7 +113,7 @@ function viewClient(id) {
 }
 
 function clientPayload(c) {
-  const fields=['address','postal','locality','activity','cae','bank','paymentTerms','paymentMethod','mobile','contact','contactPhone','branch','nib','district','municipality','clientGroup','associate','financialResponsible','financialContact','purchasingResponsible','purchasingContact'];
+  const fields=['address','postal','locality','activity','cae','bank','paymentTerms','paymentMethod','mobile','contact','contactPhone','contactEmail','branch','nib','district','municipality','clientGroup','associate','financialResponsible','financialPhone','financialEmail','purchasingResponsible','purchasingPhone','purchasingEmail'];
   return {name:c.name.trim(),nif:c.nif.trim(),phone:c.phone.trim(),email:c.email.trim(),district:c.district||'',owner_name:c.seller||'',notes:c.notes||'',active:true,
     extra_fields:{...Object.fromEntries(fields.map(k=>[k,c[k]||''])),created_by_email:state.user?.email||''}};
 }

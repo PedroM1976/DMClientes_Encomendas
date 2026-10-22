@@ -68,6 +68,8 @@ async function viewHistoryRecord(id) {
   try {
     const {data,error}=await supabaseClient.from(event.source_table).select('*').eq('id',event.record_id).single();
     if(error||!data)throw Error(error?.message||'Registo indisponível.');
+    document.body.classList.remove('mobile-menu-open','order-wide-mode');
+    document.querySelector('.mobile-menu-button')?.setAttribute('aria-expanded','false');
     document.querySelector('#history-detail')?.remove();
     const dialog=document.createElement('dialog');
     dialog.id='history-detail';dialog.className='client-sheet';
@@ -90,7 +92,7 @@ async function viewHistoryRecord(id) {
       pdf.onclick=()=>openClientPrint(data);
     }
     if(pdf.onclick)dialog.append(pdf);
-    dialog.addEventListener('close',()=>dialog.remove());
+    dialog.addEventListener('close',()=>{dialog.remove();document.body.classList.remove('mobile-menu-open','order-wide-mode');});
     document.body.append(dialog);dialog.showModal();
   } catch(error) {alert('Não foi possível consultar o registo: '+error.message);}
 }

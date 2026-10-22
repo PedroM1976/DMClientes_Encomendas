@@ -14,6 +14,8 @@ Depois disso, o utilizador `comercial@domingos-morgado.pt` pode abrir **Administ
 
 ## PDF
 
-- A ficha guardada pode ser aberta na lista de clientes e exportada em **Guardar PDF**.
+- A ficha guardada pode ser aberta na lista de clientes e exportada em **Guardar PDF**, em A4 vertical e ajustada a uma página.
 - No histórico, tanto as fichas de cliente como as encomendas apresentam **Visualizar / guardar PDF**.
 - Se o navegador bloquear a janela, permita pop-ups para o endereço da aplicação.
+
+O identificador técnico interno da encomenda não é apresentado no PDF. Na criação da encomenda, o botão **Ampliar encomenda** esconde temporariamente o menu lateral e aumenta a área da tabela.
