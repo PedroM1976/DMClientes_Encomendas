@@ -1,3 +1,24 @@
+function closePrintPreview(){
+  document.querySelector('#print-preview-overlay')?.remove();
+  document.body.classList.remove('print-preview-open');
+}
+function printCurrentPreview(){
+  const frame=document.querySelector('#print-preview-frame');
+  if(!frame?.contentWindow)return alert('Não foi possível preparar a impressão. Feche a pré-visualização e tente novamente.');
+  frame.contentWindow.focus();frame.contentWindow.print();
+}
+function openPrintPreview(html,title='Documento'){
+  document.querySelector('#history-detail[open]')?.close();
+  document.querySelector('#client-sheet[open]')?.close();
+  closePrintPreview();
+  document.body.classList.remove('mobile-menu-open','order-wide-mode');
+  document.querySelector('.mobile-menu-button')?.setAttribute('aria-expanded','false');
+  const overlay=document.createElement('div');overlay.id='print-preview-overlay';overlay.className='print-preview-overlay';
+  overlay.innerHTML=`<div class="print-preview-toolbar"><strong>${esc(title)}</strong><div><button type="button" class="primary" onclick="printCurrentPreview()">Imprimir / Guardar PDF</button> <button type="button" class="secondary" onclick="closePrintPreview()">Fechar</button></div></div><iframe id="print-preview-frame" title="Pré-visualização de ${esc(title)}"></iframe>`;
+  document.body.append(overlay);document.body.classList.add('print-preview-open');
+  const previewHTML=html.replace('</head>','<style>.print-help{display:none!important}</style></head>');
+  document.querySelector('#print-preview-frame').srcdoc=previewHTML;
+}
 function orderPrintHTML(o) {
   const totals=orderAmounts(o.lines);
   const logo=typeof LOGO_DM!=='undefined'?LOGO_DM:'';
@@ -20,11 +41,7 @@ function orderPrintHTML(o) {
   </body></html>`;
 }
 function openOrderPrint(o) {
-  document.body.classList.remove('mobile-menu-open','order-wide-mode');
-  document.querySelector('.mobile-menu-button')?.setAttribute('aria-expanded','false');
-  const popup=window.open('','_blank');
-  if(!popup){alert('Permita abrir janelas nesta página para guardar o PDF.');return;}
-  popup.document.write(orderPrintHTML(o));popup.document.close();
+  openPrintPreview(orderPrintHTML(o),'Encomenda');
 }
 function printDraftOrder() {
   captureOrder();

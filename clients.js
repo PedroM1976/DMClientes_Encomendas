@@ -96,8 +96,8 @@ function clientPrintHTML(c) {
   </body></html>`;
 }
 function openClientPrint(c) {
-  const popup=window.open('','_blank');if(!popup){alert('Permita abrir janelas nesta página para guardar o PDF.');return;}
-  popup.document.write(clientPrintHTML(c));popup.document.close();
+  if(typeof openPrintPreview==='function')return openPrintPreview(clientPrintHTML(c),'Ficha de cliente');
+  alert('A pré-visualização ainda não está disponível. Atualize a página e tente novamente.');
 }
 function printClient() { const form=document.querySelector('#client-form');if(form)openClientPrint(Object.fromEntries(new FormData(form))); }
 function printSavedClient(id,source=state.clientSource) {
