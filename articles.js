@@ -15,7 +15,8 @@ function articleSearchResults(query) {
   if(!query.trim())return '<p>Escreva parte do código ou da descrição para pesquisar.</p>';
   const matches=articleMatches(query);
   if(!matches.length)return '<p role="status">Nenhum artigo encontrado.</p>';
-return `<p role="status">${matches.length} artigo(s) encontrado(s)</p><div class="article-results"><table><thead><tr><th>Código</th><th>Descrição</th><th>Preço</th><th></th></tr></thead><tbody>${matches.map(a=>`<tr><td>${esc(a.code)}</td><td>${esc(a.description)}</td><td>${unitPriceLabel(a.price)}</td><td><button type="button" class="secondary" data-add-article="${esc(a.id)}">Adicionar</button></td></tr>`).join('')}</tbody></table></div>`;
+  const visible=matches.slice(0,25);
+return `<p role="status">${matches.length} artigo(s) encontrado(s)${matches.length>25?' · refine a pesquisa para ver além dos primeiros 25':''}</p><div class="article-results"><table><thead><tr><th>Código</th><th>Descrição</th><th>Preço</th><th></th></tr></thead><tbody>${visible.map(a=>`<tr><td>${esc(a.code)}</td><td>${esc(a.description)}</td><td>${unitPriceLabel(a.price)}</td><td><button type="button" class="secondary" data-add-article="${esc(a.id)}">Adicionar</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 function searchOrderArticles(query) {
   state.articleQuery=query;

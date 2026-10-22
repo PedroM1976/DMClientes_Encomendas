@@ -24,8 +24,18 @@ articles=function(){return baseArticlesView().replace('<div id="article-table">'
 articleTable=function(list){
   const rows=visibleArticles(list);
   if(!rows.length)return '<p class="empty">Nenhum artigo disponível para estes filtros.</p>';
-  return `<div class="table-wrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Categoria</th><th>Preço</th><th>IVA</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(a=>`<tr><td>${esc(a.code)}</td><td>${esc(a.description)}</td><td><input aria-label="Categoria de ${esc(a.code)}" id="category-${esc(a.id)}" value="${esc(a.category||'')}" placeholder="Categoria"><button type="button" data-save-category="${esc(a.id)}">Guardar categoria</button></td><td>${unitPriceLabel(a.price)}</td><td>${Number(a.vat)===0?'Isento':esc(a.vat)+'%'}</td><td>${a.active===false?'Inativo':'Ativo'}</td><td>${isCommercial()?`<button class="secondary" data-article-status="${esc(a.id)}">${a.active===false?'Ativar':'Inativar'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>`;
+  state.filteredArticles=rows;
+  const pageSize=25,pages=Math.ceil(rows.length/pageSize);state.articlePage=Math.min(Math.max(state.articlePage||1,1),pages);
+  const pageRows=rows.slice((state.articlePage-1)*pageSize,state.articlePage*pageSize);
+  return `<p class="result-count">${rows.length} artigo(s) · página ${state.articlePage} de ${pages}</p><div class="table-wrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Categoria</th><th>Preço</th><th>IVA</th><th>Estado</th><th></th></tr></thead><tbody>${pageRows.map(a=>`<tr><td>${esc(a.code)}</td><td>${esc(a.description)}</td><td><input aria-label="Categoria de ${esc(a.code)}" id="category-${esc(a.id)}" value="${esc(a.category||'')}" placeholder="Categoria"><button type="button" data-save-category="${esc(a.id)}">Guardar categoria</button></td><td>${unitPriceLabel(a.price)}</td><td>${Number(a.vat)===0?'Isento':esc(a.vat)+'%'}</td><td>${a.active===false?'Inativo':'Ativo'}</td><td>${isCommercial()?`<button class="secondary" data-article-status="${esc(a.id)}">${a.active===false?'Ativar':'Inativar'}</button>`:''}</td></tr>`).join('')}</tbody></table></div>
+  ${pages>1?`<div class="pagination"><button class="secondary" onclick="changeArticlePage(-1)" ${state.articlePage===1?'disabled':''}>Anterior</button><span>${state.articlePage} / ${pages}</span><button class="secondary" onclick="changeArticlePage(1)" ${state.articlePage===pages?'disabled':''}>Seguinte</button></div>`:''}`;
 };
+function changeArticlePage(delta){
+  state.articlePage=(state.articlePage||1)+delta;
+  document.querySelector('#article-table').innerHTML=articleTable(state.filteredArticles||[]);
+}
+const baseFilterArticles=filterArticles;
+filterArticles=function(q){state.articlePage=1;return baseFilterArticles(q);};
 async function toggleArticleStatus(id){
   if(!isCommercial())return alert('Só a conta comercial pode alterar o estado dos artigos.');
   const a=state.articles.find(a=>a.id===id);if(!a||a.savingStatus)return;

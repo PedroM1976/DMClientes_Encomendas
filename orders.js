@@ -18,6 +18,16 @@ function orderClients() {
   return (state.orderDraft.source === 'crm_clients_import' ? state.importedClients : state.clients)
     .filter(c => c.status !== 'Inativo' && c.active !== false);
 }
+function normalizeSearch(value) {
+  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt');
+}
+function orderClientSearchResults(query) {
+  const term=normalizeSearch(query).trim();
+  if(!term)return '<p>Escreva parte do nome ou do NIF para encontrar um cliente.</p>';
+  const matches=orderClients().filter(c=>normalizeSearch(`${c.name} ${c.nif}`).includes(term)).slice(0,25);
+  if(!matches.length)return '<p role="status">Nenhum cliente encontrado.</p>';
+  return `<p role="status">${matches.length}${matches.length===25?' primeiros':''} resultado(s)</p><div class="lookup-results">${matches.map(c=>`<button type="button" class="lookup-card" data-choose-client="${esc(c.id)}"><strong>${esc(c.name)}</strong><span>NIF ${esc(c.nif||'—')}</span><small>${esc(c.locality||c.extra_fields?.locality||'')}</small></button>`).join('')}</div>`;
+}
 function captureOrder() {
   const form = document.querySelector('#order-form');
   if (form) Object.assign(state.orderDraft, Object.fromEntries(new FormData(form)));
@@ -27,6 +37,7 @@ function startOrder() {
   state.orderLines = [];
   state.orderMessage = '';
   state.articleQuery = '';
+  state.clientQuery = '';
   state.view = 'new-order';
   render();
 }
@@ -57,33 +68,31 @@ orderTotal = () => orderAmounts(state.orderLines).total;
 newOrder = function() {
   const d=state.orderDraft, totals=orderAmounts(state.orderLines);
   const missingPrices=state.orderLines.some(l=>!Number.isFinite(l.price));
-  const input=(name,label)=>`<label>${label}<input name="${name}" value="${esc(d[name]||'')}" ${name==='clientName'?'required':''}></label>`;
-  return `<section class="page"><h1>Nova encomenda</h1><p>Escolha a base e o cliente. Os dados editados ficam apenas nesta encomenda.</p>
+  const input=(name,label,type='text')=>`<label>${label}<input type="${type}" name="${name}" value="${esc(d[name]||'')}" required></label>`;
+  return `<section class="page"><h1>Nova encomenda</h1><p>Todos os dados da encomenda são obrigatórios, exceto as assinaturas. Pesquise clientes e artigos sem percorrer listas extensas.</p>
   <form id="order-form" class="panel form" oninput="captureOrder()">
   <div class="form-grid"><label>Base de clientes<select name="source" onchange="changeOrderSource(this.value)">
   <option value="crm_clients" ${d.source!=='crm_clients_import'?'selected':''}>CRM</option>
   <option value="crm_clients_import" ${d.source==='crm_clients_import'?'selected':''}>Clientes importados</option></select></label>
-  <label>Pesquisar cliente<input placeholder="Nome ou NIF" oninput="searchOrderClients(this.value)"></label>
-  <label>Cliente existente<select id="order-client" name="clientId" onchange="chooseOrderClient(this.value)"><option value="">Selecionar / preencher manualmente</option>
-  ${orderClients().map(c=>`<option value="${esc(c.id)}" ${d.clientId===c.id?'selected':''}>${esc(c.name)} · ${esc(c.nif)}</option>`).join('')}</select></label>
-  ${input('clientName','Nome do cliente *')}${input('nif','NIF')}${input('delivery','Morada de entrega')}
-  <div class="payment-group"><label>Condições de pagamento${businessSelect('paymentTerms',['30 DIAS','30 DIAS DATA FATURA','PP','PAGAMENTO PARCIAL'],d.paymentTerms||'',false,'paymentTermsChanged()')}</label>
+  <label class="full-field">Pesquisar cliente<input value="${esc(state.clientQuery||'')}" placeholder="Nome ou NIF" oninput="searchOrderClients(this.value)"></label>
+  <div id="order-client-results" class="full-field">${orderClientSearchResults(state.clientQuery||'')}</div>
+  ${input('clientName','Nome do cliente *')}${input('nif','NIF *')}${input('delivery','Morada de entrega *')}
+  <div class="payment-group"><label>Condições de pagamento *${businessSelect('paymentTerms',['30 DIAS','30 DIAS DATA FATURA','PP','PAGAMENTO PARCIAL'],d.paymentTerms||'',true,'paymentTermsChanged()')}</label>
   ${d.paymentTerms==='PAGAMENTO PARCIAL'?`<label>Parcelas de pagamento *<textarea name="paymentInstallments" required placeholder="Ex.: 1.ª parcela: 50% na adjudicação; 2.ª parcela: 50% na entrega. Indique valores ou percentagens e datas.">${esc(d.paymentInstallments||'')}</textarea></label>`:''}</div>
-  <label>Meio de pagamento${businessSelect('paymentMethod',['CHEQUE','NUMERÁRIO','TRANSFERÊNCIA BANCÁRIA'],d.paymentMethod||'')}</label>
-  <label>Data de entrega<input type="date" name="deliveryDate" value="${esc(d.deliveryDate||'')}"></label>
+  <label>Meio de pagamento *${businessSelect('paymentMethod',['CHEQUE','NUMERÁRIO','TRANSFERÊNCIA BANCÁRIA','LÍQUIDO - GRENKE','LEASING PRÓPRIO'],d.paymentMethod||'',true)}</label>
+  ${input('deliveryDate','Data de entrega *','date')}
   </div>
-  <label class="order-notes">Observações<textarea name="notes" placeholder="Informações de entrega, instruções ou outros detalhes...">${esc(d.notes||'')}</textarea></label>
+  <label class="order-notes">Observações *<textarea name="notes" required placeholder="Informações de entrega, instruções ou outros detalhes...">${esc(d.notes||'')}</textarea></label>
   <label>Pesquisar artigos por código ou descrição<input id="order-article-search" value="${esc(state.articleQuery||'')}" placeholder="Ex.: barras" oninput="searchOrderArticles(this.value)"></label>
   <div id="order-article-results">${articleSearchResults(state.articleQuery||'')}</div>
-  <h2>Artigos</h2><label>Catálogo<select id="order-article"><option value="">Selecionar artigo...</option>
-  ${state.articles.filter(a=>a.active!==false).map(a=>`<option value="${esc(a.id)}">${esc(a.code)} · ${esc(a.description)}</option>`).join('')}</select></label>
+  <h2>Artigos</h2><p>Use a pesquisa acima ou adicione uma linha manual.</p>
   <button type="button" class="secondary" onclick="addManualLine()">+ Linha manual</button>
   <div class="vat-actions"><span>Aplicar IVA a toda a encomenda:</span>
   <button type="button" class="secondary" onclick="setOrderVAT(23)">IVA 23%</button>
   <button type="button" class="secondary" onclick="setOrderVAT(0)">Isento de IVA</button>
   <small>Os preços são sem IVA. Pode escolher uma taxa diferente em cada linha.</small></div>
   <div class="table-wrap"><table><thead><tr><th>Código / descrição</th><th>Qtd.</th><th>Preço</th><th>Desc. %</th><th>IVA %</th><th>Total s/ IVA</th><th></th></tr></thead><tbody>
-  ${state.orderLines.map((l,i)=>`<tr><td><input aria-label="Código" value="${esc(l.code)}" onchange="editOrderLine(${i},'code',this.value)"><input aria-label="Descrição" required value="${esc(l.description)}" onchange="editOrderLine(${i},'description',this.value)"></td>
+  ${state.orderLines.map((l,i)=>`<tr><td><input aria-label="Código" required value="${esc(l.code)}" onchange="editOrderLine(${i},'code',this.value)"><input aria-label="Descrição" required value="${esc(l.description)}" onchange="editOrderLine(${i},'description',this.value)"></td>
   ${['qty','price','discount'].map(k=>`<td><input aria-label="${k}" type="number" required min="${k==='qty'?'0.001':'0'}" ${k==='discount'?'max="100"':''} step="${k==='qty'||k==='price'?'0.001':'0.01'}" value="${l[k]??''}" placeholder="${k==='price'?'Indicar preço':''}" onchange="editOrderLine(${i},'${k}',this.value)"></td>`).join('')}
   <td><select aria-label="IVA da linha ${i+1}" onchange="editOrderLine(${i},'vat',this.value)">
   <option value="23" ${Number(l.vat)===23?'selected':''}>IVA 23%</option>
@@ -92,15 +101,14 @@ newOrder = function() {
   <td>${Number.isFinite(l.price)?eur(lineTotal(l)):'Preço por indicar'}</td><td><button type="button" onclick="removeOrderLine(${i})">Remover</button></td></tr>`).join('')}
   </tbody></table></div><div class="totals">${missingPrices?'<strong role="status">Preencha os preços em falta para calcular o total, guardar ou gerar PDF.</strong>':`<span>Subtotal: ${eur(totals.subtotal)}</span><span>IVA: ${eur(totals.vat)}</span><strong>Total: ${eur(totals.total)}</strong>`}</div>
   <h2>Assinaturas</h2><p>Espaços para assinatura manuscrita no PDF. Pode indicar abaixo os nomes dos signatários.</p>
-  <div class="form-grid">${input('signatureClientName','Cliente — nome')}${input('signatureSalesName','Comercial — nome')}${input('signatureManagementName','Gerência — nome')}</div>
+  <div class="form-grid"><label>Cliente — nome<input name="signatureClientName" value="${esc(d.signatureClientName||'')}"></label><label>Comercial — nome<input name="signatureSalesName" value="${esc(d.signatureSalesName||'')}"></label><label>Gerência — nome<input name="signatureManagementName" value="${esc(d.signatureManagementName||'')}"></label></div>
   <p id="order-message" role="status">${esc(state.orderMessage||'')}</p>
   <button type="button" class="secondary" onclick="printDraftOrder()">Guardar em PDF</button>
   <button class="primary" ${state.savingOrder?'disabled':''}>${state.savingOrder?'A guardar...':'Guardar encomenda no Supabase'}</button></form></section>`;
 };
 function searchOrderClients(q) {
-  const term=q.toLocaleLowerCase('pt');
-  for (const option of document.querySelector('#order-client').options)
-    option.hidden = !!option.value && !option.textContent.toLocaleLowerCase('pt').includes(term);
+  state.clientQuery=q;
+  document.querySelector('#order-client-results').innerHTML=orderClientSearchResults(q);
 }
 addOrderLine = function(e) {
   captureOrder();
@@ -132,11 +140,14 @@ function setOrderVAT(vat) {
   render();
 }
 function validateOrder(d,lines) {
-  if (!d.clientName?.trim()) throw Error('Preencha o nome do cliente.');
+  const required=[['clientName','nome do cliente'],['nif','NIF'],['delivery','morada de entrega'],['paymentTerms','condições de pagamento'],['paymentMethod','meio de pagamento'],['deliveryDate','data de entrega'],['notes','observações']];
+  const missing=required.filter(([key])=>!String(d[key]||'').trim()).map(([,label])=>label);
+  if(missing.length)throw Error('Preencha: '+missing.join(', ')+'.');
   if(d.paymentTerms==='PAGAMENTO PARCIAL'&&!d.paymentInstallments?.trim())
     throw Error('Indique as parcelas do pagamento parcial.');
   if (!lines.length) throw Error('Adicione pelo menos um artigo ou uma linha manual.');
   for (const l of lines) {
+    if (!String(l.code||'').trim()) throw Error('Preencha o código de todas as linhas.');
     if(l.price==null||!Number.isFinite(l.price))throw Error('Indique o preço do artigo '+(l.code||l.description||'sem código')+'.');
     if (!l.description.trim()) throw Error('Preencha a descrição de todas as linhas.');
     if (![l.qty,l.price,l.discount,l.vat].every(Number.isFinite) || l.qty<=0 || l.price<0 ||
@@ -163,13 +174,20 @@ saveOrder = async function(e) {
       notes:d.notes||'',status:'Rascunho',subtotal:totals.subtotal,vat_total:totals.vat,total:totals.total,
       document:{...d,paymentInstallments:d.paymentTerms==='PAGAMENTO PARCIAL'?(d.paymentInstallments||''):'',lines:state.orderLines.map(l=>({...l}))}};
     const {error}=await supabaseClient.from('orders').insert(payload);
-    if (error) throw Error(error.message + (error.message.includes('document')?' Execute o ficheiro encomendas.sql no Supabase.':''));
+    if (error) {
+      const missingTable=['42P01','PGRST205'].includes(error.code)||/could not find.*orders|relation.*orders.*does not exist/i.test(error.message);
+      throw Error(error.message + (missingTable?' Execute o ficheiro supabase-orders.sql no editor SQL do Supabase.':''));
+    }
     state.orders.unshift(normalizeOrder(payload));
     state.orderLines=[];state.orderDraft={};state.orderMessage='';
     state.view='orders';
   } catch(error) { state.orderMessage='Não foi possível guardar: '+error.message; }
   finally {state.savingOrder=false;render();}
 };
+document.addEventListener('click',e=>{
+  const button=e.target.closest('[data-choose-client]');
+  if(button)chooseOrderClient(button.dataset.chooseClient);
+});
 orders = function() {
   return `<section class="page"><h1>Encomendas</h1><button class="primary" onclick="startOrder()">+ Nova encomenda</button>
   <p id="orders-message" role="status"></p><button class="secondary" onclick="refreshOrders()">Atualizar lista</button>

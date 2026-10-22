@@ -79,15 +79,17 @@ async function viewHistoryRecord(id) {
     dialog.innerHTML=`<div class="sheet-actions"><h2>${esc(event.record_name)}</h2><button onclick="document.querySelector('#history-detail').close()">Fechar</button></div>
     <p>Autor do histórico: ${esc(event.actor_email||'Autor não registado')}</p>
     <dl>${fields.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value??'—')}</dd></div>`).join('')}</dl>`;
+    const pdf=document.createElement('button');pdf.textContent='Visualizar / guardar PDF';pdf.className='secondary';
     if(event.source_table==='orders'&&data.document?.lines?.length){
       const order=normalizeOrder(data);
       const details=document.createElement('div');
       details.innerHTML=`<h3>Artigos</h3><table><thead><tr><th>Código</th><th>Descrição</th><th>Qtd.</th><th>Preço</th></tr></thead><tbody>${order.lines.map(l=>`<tr><td>${esc(l.code)}</td><td>${esc(l.description)}</td><td>${esc(l.qty)}</td><td>${eur(l.price)}</td></tr>`).join('')}</tbody></table>`;
       dialog.append(details);
-      const pdf=document.createElement('button');
-      pdf.textContent='Guardar em PDF';pdf.className='secondary';
-      pdf.onclick=()=>openOrderPrint(order);dialog.append(pdf);
+      pdf.onclick=()=>openOrderPrint(order);
+    } else if(event.source_table==='crm_clients') {
+      pdf.onclick=()=>openClientPrint(data);
     }
+    if(pdf.onclick)dialog.append(pdf);
     dialog.addEventListener('close',()=>dialog.remove());
     document.body.append(dialog);dialog.showModal();
   } catch(error) {alert('Não foi possível consultar o registo: '+error.message);}
