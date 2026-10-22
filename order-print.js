@@ -1,6 +1,8 @@
 function orderPrintHTML(o) {
   const totals=orderAmounts(o.lines);
   const logo=typeof LOGO_DM!=='undefined'?LOGO_DM:'';
+  const signatures=o.signatures||o.document?.signatures||{};
+  const signatureImage=role=>String(signatures[role]||'').startsWith('data:image/png;base64,')?signatures[role]:'';
   return `<!doctype html><html lang="pt-PT"><head><meta charset="utf-8"><title>Encomenda - ${esc(o.clientName||'cliente')}</title>
   <style>@page{size:A4;margin:15mm}body{font:12px Arial;color:#172b4d;margin:0}header{display:flex;align-items:center;gap:24px;border-bottom:2px solid #1f7bb6;padding-bottom:16px}header img{width:150px;height:65px;object-fit:contain}h1{font-size:21px}h2{font-size:15px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:24px 0}.meta div{overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:9px 5px;text-align:left;border-bottom:1px solid #ddd;overflow-wrap:anywhere}th{background:#edf3f7;font-size:10px}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(1){width:12%}th:nth-child(2){width:27%}.totals{margin:20px 0 20px auto;width:260px;break-inside:avoid}.totals p{display:flex;justify-content:space-between}.notes{white-space:pre-wrap;overflow-wrap:anywhere;border-top:1px solid #ddd;padding:15px 0}.print-help{padding:12px;background:#edf3f7;margin-bottom:16px}@media print{.print-help{display:none}} </style></head><body>
   <div class="print-help"><button onclick="window.print()">Imprimir / Guardar como PDF</button> Escolha «Guardar como PDF» na janela de impressão.</div>
@@ -14,7 +16,7 @@ function orderPrintHTML(o) {
   <section class="totals"><p>Subtotal <span>${eur(totals.subtotal)}</span></p><p>IVA <span>${eur(totals.vat)}</span></p><p><strong>Total</strong><strong>${eur(totals.total)}</strong></p></section>
   <section class="notes"><strong>Observações</strong><p>${esc(o.notes||'—')}</p></section>
   <section style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:25px;break-inside:avoid">
-  ${[['Cliente','signatureClientName'],['Comercial','signatureSalesName'],['Gerência','signatureManagementName']].map(([label,key])=>`<div><strong>${label}</strong><div style="height:65px;border-bottom:1px solid #172b4d"></div><p style="overflow-wrap:anywhere">${esc(o[key]||o.document?.[key]||'Assinatura')}</p><p>Data: ____ / ____ / ______</p></div>`).join('')}</section>
+  ${[['Cliente','signatureClientName','client'],['Comercial','signatureSalesName','sales'],['Gerência','signatureManagementName','management']].map(([label,key,role])=>`<div><strong>${label}</strong><div style="height:65px;border-bottom:1px solid #172b4d;display:flex;align-items:flex-end;justify-content:center">${signatureImage(role)?`<img src="${signatureImage(role)}" alt="Assinatura de ${label}" style="max-width:100%;max-height:62px;object-fit:contain">`:''}</div><p style="overflow-wrap:anywhere">${esc(o[key]||o.document?.[key]||'Assinatura')}</p><p>Data: ____ / ____ / ______</p></div>`).join('')}</section>
   <script>window.addEventListener('load',()=>window.print());</script></body></html>`;
 }
 function openOrderPrint(o) {
@@ -28,7 +30,7 @@ function printDraftOrder() {
   captureOrder();
   try {
     validateOrder(state.orderDraft,state.orderLines);
-    openOrderPrint({...state.orderDraft,number:'Rascunho - não guardado',status:'Rascunho - não guardado',lines:state.orderLines});
+    openOrderPrint({...state.orderDraft,number:'Rascunho - não guardado',status:'Rascunho - não guardado',signatures:{...state.orderSignatures},lines:state.orderLines});
   } catch(e){document.querySelector('#order-message').textContent=e.message;}
 }
 printOrder = function(id) {

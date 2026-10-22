@@ -13,6 +13,11 @@
 #order-form>.table-wrap table{min-width:1050px}
 #order-form>.table-wrap th:first-child,#order-form>.table-wrap td:first-child{width:34%;min-width:310px}
 #order-form>.table-wrap td:first-child input{width:100%;margin-bottom:6px}
+.signature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0 24px}
+.signature-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg)}
+.signature-card-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}.signature-card-head span{color:var(--muted);font-size:12px}
+.signature-pad{display:block;width:100%;height:150px;border:1px dashed #9db3c4;border-radius:8px;background:#fff;cursor:crosshair;touch-action:none;user-select:none}
+.signature-actions{display:flex;justify-content:flex-end;margin-top:8px}.signature-actions button{padding:8px 10px}
 body.order-wide-mode:has(#order-form) .sidebar{display:none}
 body.order-wide-mode:has(#order-form) main{width:100%}
 body.order-wide-mode:has(#order-form) .order-page{max-width:none;padding-left:28px;padding-right:28px}
@@ -48,3 +53,4 @@ body.order-wide-mode:has(#order-form) .order-page{max-width:none;padding-left:28
 @media(max-width:760px){#client-form .form-grid,.client-sheet dl{grid-template-columns:1fr}.toolbar{flex-wrap:wrap}}
 @media(max-width:760px){.option-admin .form-grid,.option-lists{grid-template-columns:1fr}.option-admin .form-grid form{align-items:stretch;flex-direction:column}}
 @media(max-width:760px){.order-page-head{align-items:flex-start;flex-direction:column}.order-page-head button{width:100%}body.order-wide-mode:has(#order-form) .order-page{padding-left:10px;padding-right:10px}}
+@media(max-width:900px){.signature-grid{grid-template-columns:1fr}}

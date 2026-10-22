@@ -1,5 +1,6 @@
 // Módulo de encomendas: mantém as duas bases de clientes independentes.
 state.orderDraft = {};
+state.orderSignatures = {client:'',sales:'',management:''};
 function businessSelect(name, values, current='', required=false, change='') {
   // Preserve older saved values without silently changing their meaning.
   const options=current&&!values.includes(current)?[...values,current]:values;
@@ -37,9 +38,38 @@ function captureOrder() {
   const form = document.querySelector('#order-form');
   if (form) Object.assign(state.orderDraft, Object.fromEntries(new FormData(form)));
 }
+function signaturePad(role,label){
+  const signed=!!state.orderSignatures?.[role];
+  return `<div class="signature-card"><div class="signature-card-head"><strong>${label}</strong><span id="signature-status-${role}">${signed?'Assinatura registada':'Por assinar'}</span></div>
+  <canvas class="signature-pad" data-signature="${role}" aria-label="Assinatura de ${label}"></canvas>
+  <div class="signature-actions"><button type="button" class="secondary" onclick="clearSignature('${role}')">Limpar assinatura</button></div></div>`;
+}
+function initSignaturePads(){
+  document.querySelectorAll('canvas[data-signature]').forEach(canvas=>{
+    const role=canvas.dataset.signature,height=150,width=Math.max(canvas.clientWidth,280),ratio=Math.max(window.devicePixelRatio||1,1);
+    canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
+    const context=canvas.getContext('2d');context.scale(ratio,ratio);
+    context.lineWidth=2;context.lineCap='round';context.lineJoin='round';context.strokeStyle='#172b4d';
+    const saved=state.orderSignatures?.[role];
+    if(saved){const image=new Image();image.onload=()=>context.drawImage(image,0,0,width,height);image.src=saved;}
+    let drawing=false;
+    const point=event=>{const rect=canvas.getBoundingClientRect();return {x:event.clientX-rect.left,y:event.clientY-rect.top};};
+    canvas.addEventListener('pointerdown',event=>{event.preventDefault();drawing=true;canvas.setPointerCapture?.(event.pointerId);const p=point(event);context.beginPath();context.moveTo(p.x,p.y);});
+    canvas.addEventListener('pointermove',event=>{if(!drawing)return;event.preventDefault();const p=point(event);context.lineTo(p.x,p.y);context.stroke();});
+    const finish=event=>{if(!drawing)return;drawing=false;event?.preventDefault();state.orderSignatures[role]=canvas.toDataURL('image/png');const status=document.querySelector('#signature-status-'+role);if(status)status.textContent='Assinatura registada';};
+    canvas.addEventListener('pointerup',finish);canvas.addEventListener('pointercancel',finish);canvas.addEventListener('pointerleave',finish);
+  });
+}
+function clearSignature(role){
+  state.orderSignatures[role]='';
+  const canvas=document.querySelector(`canvas[data-signature="${role}"]`);
+  if(canvas){const context=canvas.getContext('2d');context.setTransform(1,0,0,1,0,0);context.clearRect(0,0,canvas.width,canvas.height);}
+  const status=document.querySelector('#signature-status-'+role);if(status)status.textContent='Por assinar';
+}
 function startOrder() {
   state.orderDraft = {source:'crm_clients'};
   state.orderLines = [];
+  state.orderSignatures = {client:'',sales:'',management:''};
   state.orderMessage = '';
   state.articleQuery = '';
   state.clientQuery = '';
@@ -105,7 +135,9 @@ newOrder = function() {
   ${![0,23].includes(Number(l.vat))?`<option value="${Number(l.vat)}" selected>Taxa existente: ${Number(l.vat)}%</option>`:''}</select></td>
   <td>${Number.isFinite(l.price)?eur(lineTotal(l)):'Preço por indicar'}</td><td><button type="button" onclick="removeOrderLine(${i})">Remover</button></td></tr>`).join('')}
   </tbody></table></div><div class="totals">${missingPrices?'<strong role="status">Preencha os preços em falta para calcular o total, guardar ou gerar PDF.</strong>':`<span>Subtotal: ${eur(totals.subtotal)}</span><span>IVA: ${eur(totals.vat)}</span><strong>Total: ${eur(totals.total)}</strong>`}</div>
-  <h2>Assinaturas</h2><p>Espaços para assinatura manuscrita no PDF. Pode indicar abaixo os nomes dos signatários.</p>
+  <h2>Assinaturas no ecrã</h2><p>Opcionais. Assine com o dedo, caneta ou rato. As assinaturas ficam guardadas com a encomenda e aparecem no PDF.</p>
+  <div class="signature-grid">${signaturePad('client','Cliente')}${signaturePad('sales','Comercial')}${signaturePad('management','Gerência')}</div>
+  <h3>Nomes dos signatários</h3>
   <div class="form-grid"><label>Cliente — nome<input name="signatureClientName" value="${esc(d.signatureClientName||'')}"></label><label>Comercial — nome<input name="signatureSalesName" value="${esc(d.signatureSalesName||'')}"></label><label>Gerência — nome<input name="signatureManagementName" value="${esc(d.signatureManagementName||'')}"></label></div>
   <p id="order-message" role="status">${esc(state.orderMessage||'')}</p>
   <button type="button" class="secondary" onclick="printDraftOrder()">Guardar em PDF</button>
@@ -177,14 +209,14 @@ saveOrder = async function(e) {
     const payload={id:d.documentId,number:d.number,client_id:d.source==='crm_clients'?(d.clientId||null):null,
       client_name:d.clientName,date:new Date().toISOString(),delivery:d.delivery||'',payment_terms:d.paymentTerms||'',
       notes:d.notes||'',status:'Rascunho',subtotal:totals.subtotal,vat_total:totals.vat,total:totals.total,
-      document:{...d,paymentInstallments:d.paymentTerms==='PAGAMENTO PARCIAL'?(d.paymentInstallments||''):'',lines:state.orderLines.map(l=>({...l}))}};
+      document:{...d,paymentInstallments:d.paymentTerms==='PAGAMENTO PARCIAL'?(d.paymentInstallments||''):'',signatures:{...state.orderSignatures},lines:state.orderLines.map(l=>({...l}))}};
     const {error}=await supabaseClient.from('orders').insert(payload);
     if (error) {
       const missingTable=['42P01','PGRST205'].includes(error.code)||/could not find.*orders|relation.*orders.*does not exist/i.test(error.message);
       throw Error(error.message + (missingTable?' Execute o ficheiro supabase-orders.sql no editor SQL do Supabase.':''));
     }
     state.orders.unshift(normalizeOrder(payload));
-    state.orderLines=[];state.orderDraft={};state.orderMessage='';
+    state.orderLines=[];state.orderDraft={};state.orderSignatures={client:'',sales:'',management:''};state.orderMessage='';
     state.view='orders';
   } catch(error) { state.orderMessage='Não foi possível guardar: '+error.message; }
   finally {state.savingOrder=false;render();}
@@ -212,7 +244,7 @@ duplicateOrder = function(id) {
     nif:original.document?.nif||'',delivery:original.delivery,paymentTerms:original.paymentTerms,notes:original.notes,
     paymentMethod:original.paymentMethod||original.document?.paymentMethod||'',
     paymentInstallments:original.paymentInstallments||original.document?.paymentInstallments||''};
-  state.orderMessage='';state.articleQuery='';
+  state.orderMessage='';state.articleQuery='';state.orderSignatures={client:'',sales:'',management:''};
   state.orderLines=original.lines.map(l=>({...l}));
   state.view='new-order';render();
 };
