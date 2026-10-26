@@ -12,6 +12,16 @@ As listas iniciais já estão incluídas. Execute `supabase-client-options.sql` 
 
 Depois disso, o utilizador `comercial@domingos-morgado.pt` pode abrir **Administração** e acrescentar novos grupos de cliente ou associados. Os restantes utilizadores podem consultar e utilizar os valores, mas não os podem alterar.
 
+## Link público para o cliente e edição
+
+Antes de usar **Criar link para o cliente**, execute no SQL Editor todo o conteúdo de `supabase-client-links-and-editing.sql`.
+
+- Em **Clientes**, qualquer utilizador autenticado pode criar um link válido por 7 dias e utilizável uma única vez.
+- O cliente abre `ficha-cliente.html`, preenche a ficha e, ao enviar, é criado um registo em `crm_clients`.
+- O link fica inutilizado apenas depois de a ficha ser gravada com sucesso.
+- Qualquer utilizador autenticado pode editar fichas do CRM e encomendas. Os clientes importados continuam apenas para consulta, porque pertencem a uma origem externa.
+- A chave administrativa do Supabase não é utilizada no navegador; a gravação pública passa apenas pelas funções limitadas incluídas no SQL.
+
 ## PDF
 
 - A ficha guardada pode ser aberta na lista de clientes e exportada em **Guardar PDF**, em A4 vertical e ajustada a uma página.

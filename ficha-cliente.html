@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>Ficha de cliente — Domingos &amp; Morgado</title>
+  <link rel="stylesheet" href="styles.css?v=20261026-1">
+  <link rel="stylesheet" href="public-client.css?v=20261026-1">
+</head>
+<body class="public-client-page">
+  <main class="public-client-shell">
+    <header class="public-client-header">
+      <img class="public-client-logo" src="" alt="Domingos &amp; Morgado">
+      <div><div class="eyebrow">DOMINGOS &amp; MORGADO</div><h1>Ficha de cliente</h1><p>Preencha os seus dados para criar a ficha comercial.</p></div>
+    </header>
+    <section id="link-status" class="public-notice" role="status">A validar o link…</section>
+    <form id="public-client-form" class="panel form" hidden>
+      <fieldset disabled>
+        <h2>Identificação</h2>
+        <div class="form-grid">
+          <label class="full-field">Firma / nome *<input name="name" autocomplete="organization" required></label>
+          <label>Contribuinte / NIF *<input name="nif" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" required></label>
+          <label class="full-field">Morada *<input name="address" autocomplete="street-address" required></label>
+          <label>Código postal *<input name="postal" inputmode="numeric" placeholder="0000-000" pattern="[0-9]{4}-[0-9]{3}" autocomplete="postal-code" required></label>
+          <label>Localidade *<input name="locality" autocomplete="address-level2" required></label>
+          <label>Distrito / região autónoma *<select name="district" required></select></label>
+          <label>Concelho *<select name="municipality" required disabled></select></label>
+          <label>Telefone *<input name="phone" type="tel" autocomplete="tel" required></label>
+          <label>Telemóvel *<input name="mobile" type="tel" autocomplete="tel" required></label>
+          <label>E-mail *<input name="email" type="email" autocomplete="email" required></label>
+          <label>Actividade *<input name="activity" required></label>
+          <label>CAE *<input name="cae" inputmode="numeric" pattern="[0-9]+" required></label>
+        </div>
+        <h2>Condições comerciais</h2>
+        <div class="form-grid">
+          <label>Banco *<input name="bank" required></label>
+          <label>NIB / IBAN<input name="nib"></label>
+          <label>Condições de pagamento *<select name="paymentTerms" required><option value="">Selecionar…</option><option>30 DIAS</option><option>30 DIAS DATA FATURA</option><option>PP</option></select></label>
+          <label>Meio de pagamento *<select name="paymentMethod" required><option value="">Selecionar…</option><option>CHEQUE</option><option>NUMERÁRIO</option><option>TRANSFERÊNCIA BANCÁRIA</option></select></label>
+        </div>
+        <h2>Contactos</h2>
+        <div class="form-grid">
+          <label>Pessoa de contacto *<input name="contact" autocomplete="name" required></label>
+          <label>Telefone da pessoa de contacto *<input name="contactPhone" type="tel" required></label>
+          <label>E-mail da pessoa de contacto *<input name="contactEmail" type="email" required></label>
+          <label>Responsável financeiro *<input name="financialResponsible" required></label>
+          <label>Telefone do responsável financeiro *<input name="financialPhone" type="tel" required></label>
+          <label>E-mail do responsável financeiro *<input name="financialEmail" type="email" required></label>
+          <label>Responsável de compras<input name="purchasingResponsible"></label>
+          <label>Telefone do responsável de compras<input name="purchasingPhone" type="tel"></label>
+          <label>E-mail do responsável de compras<input name="purchasingEmail" type="email"></label>
+          <label class="full-field">Observações<textarea name="notes"></textarea></label>
+        </div>
+        <label class="privacy-confirmation"><input type="checkbox" name="privacyConsent" required> Confirmo que os dados estão corretos e autorizo a sua utilização para gestão da relação comercial. *</label>
+        <p id="form-message" role="status"></p>
+        <div class="form-actions"><button class="primary" id="submit-client-form">Guardar e enviar ficha</button></div>
+      </fieldset>
+    </form>
+  </main>
+  <script src="config.js?v=20261026-1"></script>
+  <script src="logo.js?v=20261026-1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="portugal-locations.js?v=20261026-1"></script>
+  <script src="public-client.js?v=20261026-1"></script>
+</body>
+</html>

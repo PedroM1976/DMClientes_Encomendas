@@ -14,6 +14,57 @@ function updateMunicipalityOptions(district) {
   select.innerHTML=municipalityOptions(district,'');select.disabled=!district;
 }
 
+function clientValue(c,key) {
+  const x=c?.extra_fields||{};
+  const aliases={seller:'owner_name',paymentTerms:'payment_terms',paymentMethod:'payment_method',contactPhone:'contact_phone'};
+  return c?.[key]??c?.[aliases[key]]??x[key]??'';
+}
+
+function clientInput(c,name,label,type='text',required=false,extra='') {
+  return `<label>${label}${required?' *':''}<input type="${type}" name="${name}" value="${esc(clientValue(c,name))}" ${required?'required':''} ${extra}></label>`;
+}
+
+function clientEditForm(c) {
+  const district=clientValue(c,'district'),municipality=clientValue(c,'municipality');
+  return `<form id="client-edit-form" class="form client-edit-form">
+    <p class="muted">Os campos com * são obrigatórios. A alteração fica imediatamente guardada no Supabase.</p>
+    <div class="form-grid">
+      ${clientInput(c,'name','Firma / nome','text',true)}
+      ${clientInput(c,'nif','Contribuinte / NIF','text',true,'inputmode="numeric" pattern="[0-9]{9}" maxlength="9"')}
+      ${clientInput(c,'address','Morada','text',true)}
+      ${clientInput(c,'postal','Código postal','text',true,'pattern="[0-9]{4}-[0-9]{3}"')}
+      ${clientInput(c,'locality','Localidade','text',true)}
+      <label>Distrito / região autónoma<select name="district" onchange="updateMunicipalityOptions(this.value)">${districtOptions(district)}</select></label>
+      <label>Concelho<select name="municipality" ${district?'':'disabled'}>${municipalityOptions(district,municipality)}</select></label>
+      ${clientInput(c,'phone','Telefone','tel',true)}
+      ${clientInput(c,'mobile','Telemóvel','tel',true)}
+      ${clientInput(c,'email','E-mail','email',true)}
+      ${clientInput(c,'activity','Actividade','text',true)}
+      ${clientInput(c,'cae','CAE','text',true,'inputmode="numeric" pattern="[0-9]+"')}
+      ${clientInput(c,'bank','Banco','text',true)}
+      <label>Condições de pagamento *${businessSelect('paymentTerms',['30 DIAS','30 DIAS DATA FATURA','PP'],clientValue(c,'paymentTerms'),true)}</label>
+      <label>Meio de pagamento *${businessSelect('paymentMethod',['CHEQUE','NUMERÁRIO','TRANSFERÊNCIA BANCÁRIA'],clientValue(c,'paymentMethod'),true)}</label>
+      <label>Vendedor${businessSelect('seller',['RUI FERREIRA','JOÃO REBELO','SANDRO LOUREIRO','DM'],clientValue(c,'seller'))}</label>
+      <label>Grupo de cliente<select name="clientGroup">${optionList(CLIENT_GROUPS,clientValue(c,'clientGroup'))}</select></label>
+      <label>Associado<select name="associate">${optionList(CLIENT_ASSOCIATES,clientValue(c,'associate'))}</select></label>
+      ${clientInput(c,'contact','Pessoa de contacto','text',true)}
+      ${clientInput(c,'contactPhone','Telefone da pessoa de contacto','tel',true)}
+      ${clientInput(c,'contactEmail','E-mail da pessoa de contacto','email',true)}
+      ${clientInput(c,'financialResponsible','Responsável financeiro','text',true)}
+      ${clientInput(c,'financialPhone','Telefone do responsável financeiro','tel',true)}
+      ${clientInput(c,'financialEmail','E-mail do responsável financeiro','email',true)}
+      ${clientInput(c,'purchasingResponsible','Responsável de compras')}
+      ${clientInput(c,'purchasingPhone','Telefone do responsável de compras','tel')}
+      ${clientInput(c,'purchasingEmail','E-mail do responsável de compras','email')}
+      ${clientInput(c,'branch','Balcão')}
+      ${clientInput(c,'nib','NIB')}
+      <label class="full-field">Observações<textarea name="notes">${esc(c.notes||'')}</textarea></label>
+    </div>
+    <p id="client-edit-message" role="status"></p>
+    <div class="form-actions"><button type="button" class="secondary" onclick="viewClient('${esc(c.id)}')">Cancelar</button><button class="primary">Guardar alterações</button></div>
+  </form>`;
+}
+
 newClient = function() {
   return `<section class="page client-page"><div class="eyebrow">CLIENTES / NOVA FICHA</div><h1>Novo cliente</h1>
   <p class="muted">Os campos com * são obrigatórios para aprovar a ficha.</p>
@@ -107,15 +158,66 @@ function printSavedClient(id,source=state.clientSource) {
 function viewClient(id) {
   const c=selectedClients().find(c=>String(c.id)===String(id));if(!c)return;
   document.querySelector('#client-sheet')?.remove();const dialog=document.createElement('dialog');dialog.id='client-sheet';dialog.className='client-sheet';
-  dialog.innerHTML=`<div class="sheet-actions"><h2>Ficha de cliente</h2><div><button class="secondary" onclick="printSavedClient('${esc(c.id)}')">Guardar PDF</button> <button class="secondary" onclick="document.querySelector('#client-sheet').close()">Fechar</button></div></div>
-    <p>Base: ${esc(state.clientSource)} · Consulta</p><dl>${clientFields(c).map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value||'—')}</dd></div>`).join('')}</dl>`;
+  const editable=state.clientSource==='crm_clients';
+  dialog.innerHTML=`<div class="sheet-actions"><h2>Ficha de cliente</h2><div>${editable?`<button class="primary" onclick="editClient('${esc(c.id)}')">Editar ficha</button>`:''} <button class="secondary" onclick="printSavedClient('${esc(c.id)}')">Guardar PDF</button> <button class="secondary" onclick="document.querySelector('#client-sheet').close()">Fechar</button></div></div>
+    <p>Base: ${esc(state.clientSource)} · ${editable?'Todos os utilizadores autenticados podem editar.':'Registo importado disponível apenas para consulta.'}</p><dl>${clientFields(c).map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value||'—')}</dd></div>`).join('')}</dl>`;
   dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
 }
 
-function clientPayload(c) {
+function editClient(id) {
+  if(state.clientSource!=='crm_clients')return alert('Os clientes importados são apenas de consulta. Edite o registo na origem ou copie-o para o CRM.');
+  const c=state.clients.find(c=>String(c.id)===String(id));if(!c)return;
+  const dialog=document.querySelector('#client-sheet');if(!dialog)return;
+  dialog.innerHTML=`<div class="sheet-actions"><h2>Editar ficha de cliente</h2><button class="secondary" onclick="viewClient('${esc(c.id)}')">Fechar edição</button></div>${clientEditForm(c)}`;
+  dialog.querySelector('#client-edit-form')?.addEventListener('submit',event=>saveClientEdit(event,c.id));
+}
+
+async function saveClientEdit(event,id) {
+  event.preventDefault();const form=event.currentTarget;if(!form.reportValidity())return;
+  const message=form.querySelector('#client-edit-message');const button=form.querySelector('button.primary');
+  try {
+    if(!supabaseClient)throw Error('Sem ligação ao Supabase.');
+    const values=Object.fromEntries(new FormData(form));
+    if(state.clients.some(c=>String(c.id)!==String(id)&&String(c.nif||'').trim()===values.nif.trim()))throw Error('Já existe outro cliente com este NIF.');
+    const current=state.clients.find(c=>String(c.id)===String(id));if(!current)throw Error('Cliente não encontrado.');
+    button.disabled=true;message.textContent='A guardar alterações...';
+    const payload=clientPayload(values,current);
+    const {data,error}=await supabaseClient.from('crm_clients').update(payload).eq('id',id).select().single();
+    if(error)throw Error(error.message);
+    const updated={...current,...data,...values,id,status:data.active===false?'Inativo':'Ativo',extra_fields:data.extra_fields||payload.extra_fields};
+    state.clients=state.clients.map(c=>String(c.id)===String(id)?updated:c).sort((a,b)=>a.name.localeCompare(b.name,'pt'));
+    viewClient(id);
+  } catch(error) {message.textContent='Não foi possível guardar: '+error.message;button.disabled=false;}
+}
+
+async function createClientFormLink() {
+  const button=document.querySelector('#create-client-link');const message=document.querySelector('#client-link-message');
+  try {
+    if(!supabaseClient)throw Error('Sem ligação ao Supabase.');
+    button.disabled=true;message.textContent='A criar link seguro...';
+    const {data,error}=await supabaseClient.rpc('create_client_form_link',{p_expires_in_hours:168});
+    if(error)throw Error(error.message);
+    const url=new URL('ficha-cliente.html',location.href);url.searchParams.set('token',data);
+    showClientLink(url.toString());message.textContent='Link criado. Válido durante 7 dias e para uma única submissão.';
+  } catch(error) {message.textContent='Não foi possível criar o link: '+error.message+' Confirme que executou o SQL de links públicos.';}
+  finally {button.disabled=false;}
+}
+
+function showClientLink(link) {
+  document.querySelector('#client-link-dialog')?.remove();
+  const dialog=document.createElement('dialog');dialog.id='client-link-dialog';dialog.className='client-link-dialog';
+  const whatsapp='https://wa.me/?text='+encodeURIComponent('Olá. Preencha a sua ficha de cliente da Domingos & Morgado através deste link: '+link);
+  dialog.innerHTML=`<h2>Link para a ficha de cliente</h2><p>O link é válido durante 7 dias e deixa de funcionar depois de a ficha ser enviada.</p><label>Link<input id="client-public-link" readonly value="${esc(link)}"></label><p id="client-copy-message" role="status"></p><div class="form-actions"><button class="primary" id="copy-client-link">Copiar link</button><a class="secondary button-link" target="_blank" rel="noopener" href="${esc(whatsapp)}">Abrir WhatsApp</a>${navigator.share?'<button class="secondary" id="share-client-link">Partilhar</button>':''}<button class="secondary" onclick="this.closest('dialog').close()">Fechar</button></div>`;
+  dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
+  dialog.querySelector('#copy-client-link').onclick=async()=>{await navigator.clipboard.writeText(link);dialog.querySelector('#client-copy-message').textContent='Link copiado.';};
+  dialog.querySelector('#share-client-link')?.addEventListener('click',()=>navigator.share({title:'Ficha de cliente',text:'Preencha a sua ficha de cliente da Domingos & Morgado.',url:link}));
+}
+
+function clientPayload(c,current=null) {
   const fields=['address','postal','locality','activity','cae','bank','paymentTerms','paymentMethod','mobile','contact','contactPhone','contactEmail','branch','nib','district','municipality','clientGroup','associate','financialResponsible','financialPhone','financialEmail','purchasingResponsible','purchasingPhone','purchasingEmail'];
-  return {name:c.name.trim(),nif:c.nif.trim(),phone:c.phone.trim(),email:c.email.trim(),district:c.district||'',owner_name:c.seller||'',notes:c.notes||'',active:true,
-    extra_fields:{...Object.fromEntries(fields.map(k=>[k,c[k]||''])),created_by_email:state.user?.email||''}};
+  const existing=current?.extra_fields||{};
+  return {name:c.name.trim(),nif:c.nif.trim(),phone:c.phone.trim(),email:c.email.trim(),district:c.district||'',owner_name:c.seller||'',notes:c.notes||'',active:current?.active!==false,
+    extra_fields:{...existing,...Object.fromEntries(fields.map(k=>[k,c[k]||''])),created_by_email:existing.created_by_email||state.user?.email||''}};
 }
 saveClient = async function(e) {
   e.preventDefault();if(state.savingClient)return;const form=e.currentTarget;if(!form.reportValidity())return;
@@ -147,7 +249,7 @@ clients=function(){
   const list=selectedClients().filter(c=>c.status!=='Inativo');state.filteredClients=list;state.clientPage=1;
   const groups=[...new Set([...CLIENT_GROUPS,...selectedClients().map(c=>c.clientGroup||c.extra_fields?.clientGroup).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'pt'));
   const associates=[...new Set([...CLIENT_ASSOCIATES,...selectedClients().map(c=>c.associate||c.extra_fields?.associate).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'pt'));
-  return `<section class="page"><div class="page-head"><div><div class="eyebrow">BASE DE DADOS</div><h1>Clientes</h1><p class="muted">Resultados paginados para evitar listas demasiado compridas.</p></div><button class="primary" data-action="new-client">+ Novo cliente</button></div>
+  return `<section class="page"><div class="page-head"><div><div class="eyebrow">BASE DE DADOS</div><h1>Clientes</h1><p class="muted">Resultados paginados para evitar listas demasiado compridas.</p></div><div class="page-actions"><button class="secondary" id="create-client-link" onclick="createClientFormLink()">Criar link para o cliente</button><button class="primary" data-action="new-client">+ Novo cliente</button></div></div><p id="client-link-message" role="status"></p>
   <div class="toolbar"><label>Base de clientes<select id="client-source"><option value="crm_clients" ${state.clientSource==='crm_clients'?'selected':''}>CRM</option><option value="crm_clients_import" ${state.clientSource==='crm_clients_import'?'selected':''}>Clientes importados</option></select></label>
   <input id="client-search" placeholder="Pesquisar por nome, NIF ou telefone..."><select id="district-filter"><option value="">Todos os distritos e regiões</option>${Object.keys(window.PORTUGAL_LOCATIONS||{}).map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('')}</select>
   <select id="client-group-filter" aria-label="Filtrar por grupo" onchange="runClientFilters()"><option value="">Todos os grupos</option>${groups.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select>

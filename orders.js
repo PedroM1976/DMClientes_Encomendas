@@ -67,6 +67,7 @@ function clearSignature(role){
   const status=document.querySelector('#signature-status-'+role);if(status)status.textContent='Por assinar';
 }
 function startOrder() {
+  state.editingOrderId = null;
   state.orderDraft = {source:'crm_clients'};
   state.orderLines = [];
   state.orderSignatures = {client:'',sales:'',management:''};
@@ -102,9 +103,10 @@ function orderAmounts(lines) {
 orderTotal = () => orderAmounts(state.orderLines).total;
 newOrder = function() {
   const d=state.orderDraft, totals=orderAmounts(state.orderLines);
+  const editing=!!state.editingOrderId;
   const missingPrices=state.orderLines.some(l=>!Number.isFinite(l.price));
   const input=(name,label,type='text')=>`<label>${label}<input type="${type}" name="${name}" value="${esc(d[name]||'')}" required></label>`;
-  return `<section class="page order-page"><div class="order-page-head"><h1>Nova encomenda</h1><button type="button" class="secondary" id="toggle-order-wide" onclick="toggleOrderWide()">${document.body.classList.contains('order-wide-mode')?'Repor área':'Ampliar encomenda'}</button></div><p>Todos os dados da encomenda são obrigatórios, exceto as assinaturas. Pesquise clientes e artigos sem percorrer listas extensas.</p>
+  return `<section class="page order-page"><div class="order-page-head"><h1>${editing?'Editar encomenda':'Nova encomenda'}</h1><button type="button" class="secondary" id="toggle-order-wide" onclick="toggleOrderWide()">${document.body.classList.contains('order-wide-mode')?'Repor área':'Ampliar encomenda'}</button></div><p>${editing?'As alterações substituem a versão atual no Supabase.':'Todos os dados da encomenda são obrigatórios, exceto as assinaturas.'} Pesquise clientes e artigos sem percorrer listas extensas.</p>
   <form id="order-form" class="panel form" oninput="captureOrder()">
   <div class="form-grid"><label>Base de clientes<select name="source" onchange="changeOrderSource(this.value)">
   <option value="crm_clients" ${d.source!=='crm_clients_import'?'selected':''}>CRM</option>
@@ -140,8 +142,9 @@ newOrder = function() {
   <h3>Nomes dos signatários</h3>
   <div class="form-grid"><label>Cliente — nome<input name="signatureClientName" value="${esc(d.signatureClientName||'')}"></label><label>Comercial — nome<input name="signatureSalesName" value="${esc(d.signatureSalesName||'')}"></label><label>Gerência — nome<input name="signatureManagementName" value="${esc(d.signatureManagementName||'')}"></label></div>
   <p id="order-message" role="status">${esc(state.orderMessage||'')}</p>
+  <button type="button" class="secondary" onclick="state.editingOrderId=null;state.view='orders';render()">Cancelar</button>
   <button type="button" class="secondary" onclick="printDraftOrder()">Guardar em PDF</button>
-  <button class="primary" ${state.savingOrder?'disabled':''}>${state.savingOrder?'A guardar...':'Guardar encomenda no Supabase'}</button></form></section>`;
+  <button class="primary" ${state.savingOrder?'disabled':''}>${state.savingOrder?'A guardar...':editing?'Guardar alterações':'Guardar encomenda no Supabase'}</button></form></section>`;
 };
 function searchOrderClients(q) {
   state.clientQuery=q;
@@ -203,20 +206,25 @@ saveOrder = async function(e) {
     state.savingOrder=true;
     state.orderMessage='A guardar...';
     render();
-    d.documentId ||= crypto.randomUUID();
+    const editingId=state.editingOrderId;
+    const existing=editingId?state.orders.find(order=>String(order.id)===String(editingId)):null;
+    d.documentId ||= editingId||crypto.randomUUID();
     d.number ||= 'E-'+d.documentId.toUpperCase();
     const totals=orderAmounts(state.orderLines);
     const payload={id:d.documentId,number:d.number,client_id:d.source==='crm_clients'?(d.clientId||null):null,
-      client_name:d.clientName,date:new Date().toISOString(),delivery:d.delivery||'',payment_terms:d.paymentTerms||'',
-      notes:d.notes||'',status:'Rascunho',subtotal:totals.subtotal,vat_total:totals.vat,total:totals.total,
+      client_name:d.clientName,date:editingId?(existing?.date||new Date().toISOString()):new Date().toISOString(),delivery:d.delivery||'',payment_terms:d.paymentTerms||'',
+      notes:d.notes||'',status:existing?.status||'Rascunho',subtotal:totals.subtotal,vat_total:totals.vat,total:totals.total,
       document:{...d,paymentInstallments:d.paymentTerms==='PAGAMENTO PARCIAL'?(d.paymentInstallments||''):'',signatures:{...state.orderSignatures},lines:state.orderLines.map(l=>({...l}))}};
-    const {error}=await supabaseClient.from('orders').insert(payload);
+    const query=editingId?supabaseClient.from('orders').update(payload).eq('id',editingId):supabaseClient.from('orders').insert(payload);
+    const {error}=await query;
     if (error) {
       const missingTable=['42P01','PGRST205'].includes(error.code)||/could not find.*orders|relation.*orders.*does not exist/i.test(error.message);
       throw Error(error.message + (missingTable?' Execute o ficheiro supabase-orders.sql no editor SQL do Supabase.':''));
     }
-    state.orders.unshift(normalizeOrder(payload));
+    if(editingId)state.orders=state.orders.map(order=>String(order.id)===String(editingId)?normalizeOrder(payload):order);
+    else state.orders.unshift(normalizeOrder(payload));
     state.orderLines=[];state.orderDraft={};state.orderSignatures={client:'',sales:'',management:''};state.orderMessage='';
+    state.editingOrderId=null;
     state.view='orders';
   } catch(error) { state.orderMessage='Não foi possível guardar: '+error.message; }
   finally {state.savingOrder=false;render();}
@@ -230,16 +238,30 @@ orders = function() {
   <p id="orders-message" role="status"></p><button class="secondary" onclick="refreshOrders()">Atualizar lista</button>
   <div class="table-wrap"><table><thead><tr><th>Número</th><th>Cliente</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody>
   ${state.orders.map(o=>`<tr><td>${esc(o.number)}</td><td>${esc(o.clientName)}</td><td>${eur(o.total)}</td><td>${esc(o.status)}</td><td>
-  ${o.lines?.length?`<button onclick="printOrder('${o.id}')">PDF</button><button onclick="duplicateOrder('${o.id}')">Duplicar</button>`:'Sem linhas disponíveis nesta versão'}</td></tr>`).join('')}
+  ${o.lines?.length?`<button onclick="printOrder('${o.id}')">PDF</button><button onclick="editOrder('${o.id}')">Editar</button><button onclick="duplicateOrder('${o.id}')">Duplicar</button>`:'Sem linhas disponíveis nesta versão'}</td></tr>`).join('')}
   </tbody></table></div></section>`;
 };
 async function refreshOrders() {
   try {state.orders=(await readAllRows('orders')).map(normalizeOrder);render();}
   catch(e){document.querySelector('#orders-message').textContent='Não foi possível carregar: '+e.message;}
 }
+function editOrder(id) {
+  const original=state.orders.find(order=>String(order.id)===String(id));
+  if(!original?.lines?.length)return alert('Esta encomenda não tem linhas disponíveis para edição.');
+  const document=original.document||{};
+  state.editingOrderId=original.id;
+  state.orderDraft={...document,source:document.source||original.source||'crm_clients',documentId:original.id,number:original.number,
+    clientId:document.clientId||original.client_id||'',clientName:original.clientName,nif:document.nif||'',delivery:original.delivery||'',
+    paymentTerms:original.paymentTerms||'',paymentMethod:document.paymentMethod||original.paymentMethod||'',
+    paymentInstallments:document.paymentInstallments||original.paymentInstallments||'',deliveryDate:document.deliveryDate||'',notes:original.notes||''};
+  state.orderLines=original.lines.map(line=>({...line}));
+  state.orderSignatures={client:'',sales:'',management:'',...(document.signatures||{})};
+  state.orderMessage='';state.articleQuery='';state.clientQuery='';state.view='new-order';render();
+}
 duplicateOrder = function(id) {
   const original=state.orders.find(o=>o.id===id);
   if(!original?.lines?.length)return;
+  state.editingOrderId=null;
   state.orderDraft={source:original.source||original.document?.source||'crm_clients',clientName:original.clientName,
     nif:original.document?.nif||'',delivery:original.delivery,paymentTerms:original.paymentTerms,notes:original.notes,
     paymentMethod:original.paymentMethod||original.document?.paymentMethod||'',

@@ -36,6 +36,7 @@ body.order-wide-mode:has(#order-form) .order-page{max-width:none;padding-left:28
 .client-sheet dt{font-weight:bold;margin-bottom:8px}
 .client-sheet dd{margin:0;white-space:pre-wrap}
 .client-sheet .sheet-actions{display:flex;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:2;background:#fff;padding:8px 0;border-bottom:1px solid var(--line)}
+.page-actions{display:flex;gap:10px;flex-wrap:wrap}.button-link{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.client-link-dialog{width:min(720px,94vw);border:0;border-radius:16px;padding:28px;color:var(--ink)}.client-link-dialog::backdrop{background:#102a4399}.client-link-dialog label{display:flex;flex-direction:column;gap:8px;font-weight:700}.client-link-dialog input{width:100%}.client-edit-form{box-shadow:none;border:0;margin-top:0;padding:18px 0}.client-edit-form input,.client-edit-form textarea{width:100%}
 .section-title{margin-top:32px!important}
 .full-field{grid-column:1/-1}
 .lookup-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;max-height:280px;overflow:auto;padding:4px}
@@ -56,6 +57,7 @@ body.order-wide-mode:has(#order-form) .order-page{max-width:none;padding-left:28
 .option-admin details{margin-top:20px}.option-admin summary{cursor:pointer;font-weight:700;color:var(--blue)}
 .option-lists{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}.option-lists>div{padding:14px;background:var(--bg);border-radius:10px}.option-lists p{line-height:1.7}
 @media(max-width:760px){#client-form .form-grid,.client-sheet dl{grid-template-columns:1fr}.toolbar{flex-wrap:wrap}}
+@media(max-width:760px){.page-actions{width:100%}.page-actions button{flex:1}.client-edit-form .form-grid{grid-template-columns:1fr}.client-sheet .sheet-actions{align-items:flex-start;flex-direction:column}.client-sheet .sheet-actions>div{display:flex;gap:6px;flex-wrap:wrap}}
 @media(max-width:760px){.option-admin .form-grid,.option-lists{grid-template-columns:1fr}.option-admin .form-grid form{align-items:stretch;flex-direction:column}}
 @media(max-width:760px){.order-page-head{align-items:flex-start;flex-direction:column}.order-page-head button{width:100%}body.order-wide-mode:has(#order-form) .order-page{padding-left:10px;padding-right:10px}}
 @media(max-width:900px){.signature-grid{grid-template-columns:1fr}}
