@@ -27,32 +27,32 @@ function clientInput(c,name,label,type='text',required=false,extra='') {
 function clientEditForm(c) {
   const district=clientValue(c,'district'),municipality=clientValue(c,'municipality');
   return `<form id="client-edit-form" class="form client-edit-form">
-    <p class="muted">Os campos com * são obrigatórios. A alteração fica imediatamente guardada no Supabase.</p>
+    <p class="muted">Nome e NIF são obrigatórios. Os restantes dados podem ser completados gradualmente.</p>
     <div class="form-grid">
       ${clientInput(c,'name','Firma / nome','text',true)}
       ${clientInput(c,'nif','Contribuinte / NIF','text',true,'inputmode="numeric" pattern="[0-9]{9}" maxlength="9"')}
-      ${clientInput(c,'address','Morada','text',true)}
-      ${clientInput(c,'postal','Código postal','text',true,'pattern="[0-9]{4}-[0-9]{3}"')}
-      ${clientInput(c,'locality','Localidade','text',true)}
+      ${clientInput(c,'address','Morada')}
+      ${clientInput(c,'postal','Código postal','text',false,'pattern="[0-9]{4}-[0-9]{3}"')}
+      ${clientInput(c,'locality','Localidade')}
       <label>Distrito / região autónoma<select name="district" onchange="updateMunicipalityOptions(this.value)">${districtOptions(district)}</select></label>
       <label>Concelho<select name="municipality" ${district?'':'disabled'}>${municipalityOptions(district,municipality)}</select></label>
-      ${clientInput(c,'phone','Telefone','tel',true)}
-      ${clientInput(c,'mobile','Telemóvel','tel',true)}
-      ${clientInput(c,'email','E-mail','email',true)}
-      ${clientInput(c,'activity','Actividade','text',true)}
-      ${clientInput(c,'cae','CAE','text',true,'inputmode="numeric" pattern="[0-9]+"')}
-      ${clientInput(c,'bank','Banco','text',true)}
-      <label>Condições de pagamento *${businessSelect('paymentTerms',['30 DIAS','30 DIAS DATA FATURA','PP'],clientValue(c,'paymentTerms'),true)}</label>
-      <label>Meio de pagamento *${businessSelect('paymentMethod',['CHEQUE','NUMERÁRIO','TRANSFERÊNCIA BANCÁRIA'],clientValue(c,'paymentMethod'),true)}</label>
+      ${clientInput(c,'phone','Telefone','tel')}
+      ${clientInput(c,'mobile','Telemóvel','tel')}
+      ${clientInput(c,'email','E-mail','email')}
+      ${clientInput(c,'activity','Actividade')}
+      ${clientInput(c,'cae','CAE','text',false,'inputmode="numeric" pattern="[0-9]+"')}
+      ${clientInput(c,'bank','Banco')}
+      <label>Condições de pagamento${businessSelect('paymentTerms',['30 DIAS','30 DIAS DATA FATURA','PP'],clientValue(c,'paymentTerms'))}</label>
+      <label>Meio de pagamento${businessSelect('paymentMethod',['CHEQUE','NUMERÁRIO','TRANSFERÊNCIA BANCÁRIA'],clientValue(c,'paymentMethod'))}</label>
       <label>Vendedor${businessSelect('seller',['RUI FERREIRA','JOÃO REBELO','SANDRO LOUREIRO','DM'],clientValue(c,'seller'))}</label>
       <label>Grupo de cliente<select name="clientGroup">${optionList(CLIENT_GROUPS,clientValue(c,'clientGroup'))}</select></label>
       <label>Associado<select name="associate">${optionList(CLIENT_ASSOCIATES,clientValue(c,'associate'))}</select></label>
-      ${clientInput(c,'contact','Pessoa de contacto','text',true)}
-      ${clientInput(c,'contactPhone','Telefone da pessoa de contacto','tel',true)}
-      ${clientInput(c,'contactEmail','E-mail da pessoa de contacto','email',true)}
-      ${clientInput(c,'financialResponsible','Responsável financeiro','text',true)}
-      ${clientInput(c,'financialPhone','Telefone do responsável financeiro','tel',true)}
-      ${clientInput(c,'financialEmail','E-mail do responsável financeiro','email',true)}
+      ${clientInput(c,'contact','Pessoa de contacto')}
+      ${clientInput(c,'contactPhone','Telefone da pessoa de contacto','tel')}
+      ${clientInput(c,'contactEmail','E-mail da pessoa de contacto','email')}
+      ${clientInput(c,'financialResponsible','Responsável financeiro')}
+      ${clientInput(c,'financialPhone','Telefone do responsável financeiro','tel')}
+      ${clientInput(c,'financialEmail','E-mail do responsável financeiro','email')}
       ${clientInput(c,'purchasingResponsible','Responsável de compras')}
       ${clientInput(c,'purchasingPhone','Telefone do responsável de compras','tel')}
       ${clientInput(c,'purchasingEmail','E-mail do responsável de compras','email')}
