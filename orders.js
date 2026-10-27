@@ -1,6 +1,7 @@
 // Módulo de encomendas: mantém as duas bases de clientes independentes.
 state.orderDraft = {};
 state.orderSignatures = {client:'',sales:'',management:''};
+state.orderClientSource = 'all';
 function businessSelect(name, values, current='', required=false, change='') {
   // Preserve older saved values without silently changing their meaning.
   const options=current&&!values.includes(current)?[...values,current]:values;
@@ -20,9 +21,16 @@ function normalizeOrder(row) {
   return {...(row.document || {}), ...row, clientName:row.client_name || row.clientName || '',
     paymentTerms:row.payment_terms || row.paymentTerms || '', lines:row.document?.lines || row.lines || []};
 }
-function orderClients() {
-  return (state.orderDraft.source === 'crm_clients_import' ? state.importedClients : state.clients)
-    .filter(c => c.status !== 'Inativo' && c.active !== false);
+function orderClients(source=state.orderClientSource||'all') {
+  const sources=[
+    ['crm_clients',state.clients],
+    ['crm_clients_import',state.importedClients]
+  ];
+  return sources
+    .filter(([clientSource])=>source==='all'||source===clientSource)
+    .flatMap(([clientSource,clients])=>(clients||[])
+      .filter(c=>c.status!=='Inativo'&&c.active!==false)
+      .map(client=>({client,source:clientSource})));
 }
 function normalizeSearch(value) {
   return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt');
@@ -30,9 +38,9 @@ function normalizeSearch(value) {
 function orderClientSearchResults(query) {
   const term=normalizeSearch(query).trim();
   if(!term)return '<p>Escreva parte do nome ou do NIF para encontrar um cliente.</p>';
-  const matches=orderClients().filter(c=>normalizeSearch(`${c.name} ${c.nif}`).includes(term)).slice(0,25);
+  const matches=orderClients().filter(({client})=>normalizeSearch(`${client.name} ${client.nif}`).includes(term)).slice(0,25);
   if(!matches.length)return '<p role="status">Nenhum cliente encontrado.</p>';
-  return `<p role="status">${matches.length}${matches.length===25?' primeiros':''} resultado(s)</p><div class="lookup-results">${matches.map(c=>`<button type="button" class="lookup-card" data-choose-client="${esc(c.id)}"><strong>${esc(c.name)}</strong><span>NIF ${esc(c.nif||'—')}</span><small>${esc(c.locality||c.extra_fields?.locality||'')}</small></button>`).join('')}</div>`;
+  return `<p role="status">${matches.length}${matches.length===25?' primeiros':''} resultado(s)</p><div class="lookup-results">${matches.map(({client:c,source})=>`<button type="button" class="lookup-card" data-choose-client="${esc(c.id)}" data-client-source="${source}"><strong>${esc(c.name)}</strong><span>NIF ${esc(c.nif||'—')}</span><small>${source==='crm_clients'?'CRM':'Importados'} · ${esc(c.locality||c.extra_fields?.locality||'')}</small></button>`).join('')}</div>`;
 }
 function captureOrder() {
   const form = document.querySelector('#order-form');
@@ -69,6 +77,7 @@ function clearSignature(role){
 function startOrder() {
   state.editingOrderId = null;
   state.orderDraft = {source:'crm_clients'};
+  state.orderClientSource = 'all';
   state.orderLines = [];
   state.orderSignatures = {client:'',sales:'',management:''};
   state.orderMessage = '';
@@ -77,22 +86,31 @@ function startOrder() {
   state.view = 'new-order';
   render();
 }
-function chooseOrderClient(id) {
+function chooseOrderClient(id,source) {
   captureOrder();
-  const c = orderClients().find(c => c.id === id);
+  const match=orderClients(source).find(({client})=>String(client.id)===String(id));
+  const c=match?.client;
   if (!c) return;
-  Object.assign(state.orderDraft, {clientId:id, clientName:c.name, nif:c.nif,
+  Object.assign(state.orderDraft, {source,clientId:id, clientName:c.name, nif:c.nif,
     delivery:c.address || c.extra_fields?.address || '',
     paymentTerms:c.payment_terms || c.extra_fields?.paymentTerms || '',
     paymentMethod:c.payment_method || c.extra_fields?.paymentMethod || '',paymentInstallments:''});
+  state.clientQuery=c.name||c.nif||'';
   render();
 }
 function changeOrderSource(source) {
   captureOrder();
-  Object.assign(state.orderDraft,{source,clientId:'',clientName:'',nif:'',delivery:'',paymentTerms:'',paymentMethod:'',paymentInstallments:''});
+  state.orderClientSource=source;
+  const orderSource=source==='crm_clients_import'?'crm_clients_import':source==='new'?'new':'crm_clients';
+  Object.assign(state.orderDraft,{source:orderSource,clientId:'',clientName:'',nif:'',delivery:'',paymentTerms:'',paymentMethod:'',paymentInstallments:''});
   render();
 }
 function money(value) { return Math.round((Number(value) + Number.EPSILON) * 100) / 100; }
+function orderClientId(source,id) {
+  if(source!=='crm_clients')return null;
+  const value=String(id||'').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)?value:null;
+}
 function catalogPrice(value) {return value==null||String(value).trim()===''?null:Number(value);}
 lineTotal = l => money(Number(l.qty)*Number(l.price)*(1-Number(l.discount)/100));
 function orderAmounts(lines) {
@@ -104,15 +122,17 @@ orderTotal = () => orderAmounts(state.orderLines).total;
 newOrder = function() {
   const d=state.orderDraft, totals=orderAmounts(state.orderLines);
   const editing=!!state.editingOrderId;
+  const newClientMode=state.orderClientSource==='new';
   const missingPrices=state.orderLines.some(l=>!Number.isFinite(l.price));
   const input=(name,label,type='text')=>`<label>${label}<input type="${type}" name="${name}" value="${esc(d[name]||'')}" required></label>`;
   return `<section class="page order-page"><div class="order-page-head"><h1>${editing?'Editar encomenda':'Nova encomenda'}</h1><button type="button" class="secondary" id="toggle-order-wide" onclick="toggleOrderWide()">${document.body.classList.contains('order-wide-mode')?'Repor área':'Ampliar encomenda'}</button></div><p>${editing?'As alterações substituem a versão atual no Supabase.':'Todos os dados da encomenda são obrigatórios, exceto as assinaturas.'} Pesquise clientes e artigos sem percorrer listas extensas.</p>
-  <form id="order-form" class="panel form" oninput="captureOrder()">
-  <div class="form-grid"><label>Base de clientes<select name="source" onchange="changeOrderSource(this.value)">
-  <option value="crm_clients" ${d.source!=='crm_clients_import'?'selected':''}>CRM</option>
-  <option value="crm_clients_import" ${d.source==='crm_clients_import'?'selected':''}>Clientes importados</option></select></label>
-  <label class="full-field">Pesquisar cliente<input value="${esc(state.clientQuery||'')}" placeholder="Nome ou NIF" oninput="searchOrderClients(this.value)"></label>
-  <div id="order-client-results" class="full-field">${orderClientSearchResults(state.clientQuery||'')}</div>
+  <form id="order-form" class="panel form" novalidate oninput="captureOrder()">
+  <div class="form-grid"><label>Pesquisar em<select onchange="changeOrderSource(this.value)">
+  <option value="all" ${state.orderClientSource==='all'?'selected':''}>Todos os clientes</option>
+  <option value="crm_clients" ${state.orderClientSource==='crm_clients'?'selected':''}>CRM</option>
+  <option value="crm_clients_import" ${state.orderClientSource==='crm_clients_import'?'selected':''}>Clientes importados</option>
+  <option value="new" ${newClientMode?'selected':''}>Novo cliente — introduzir dados</option></select></label>
+  ${newClientMode?'<p class="full-field" role="status">Preencha abaixo os dados do novo cliente. A encomenda será guardada sem exigir uma ficha de cliente prévia.</p>':`<label class="full-field">Pesquisar cliente existente<input value="${esc(state.clientQuery||'')}" placeholder="Nome ou NIF" oninput="searchOrderClients(this.value)"></label><div id="order-client-results" class="full-field">${orderClientSearchResults(state.clientQuery||'')}</div>`}
   ${input('clientName','Nome do cliente *')}${input('nif','NIF *')}${input('delivery','Morada de entrega *')}
   <div class="payment-group"><label>Condições de pagamento *${businessSelect('paymentTerms',['30 DIAS','30 DIAS DATA FATURA','PP','PAGAMENTO PARCIAL'],d.paymentTerms||'',true,'paymentTermsChanged()')}</label>
   ${d.paymentTerms==='PAGAMENTO PARCIAL'?`<label>Observações do pagamento parcial *<textarea name="paymentInstallments" required placeholder="Indique obrigatoriamente as parcelas, valores ou percentagens e respetivas datas.">${esc(d.paymentInstallments||'')}</textarea></label>`:''}</div>
@@ -211,7 +231,7 @@ saveOrder = async function(e) {
     d.documentId ||= editingId||crypto.randomUUID();
     d.number ||= 'E-'+d.documentId.toUpperCase();
     const totals=orderAmounts(state.orderLines);
-    const payload={id:d.documentId,number:d.number,client_id:d.source==='crm_clients'?(d.clientId||null):null,
+    const payload={id:d.documentId,number:d.number,client_id:orderClientId(d.source,d.clientId),
       client_name:d.clientName,date:editingId?(existing?.date||new Date().toISOString()):new Date().toISOString(),delivery:d.delivery||'',payment_terms:d.paymentTerms||'',
       notes:d.notes||'',status:existing?.status||'Rascunho',subtotal:totals.subtotal,vat_total:totals.vat,total:totals.total,
       document:{...d,paymentInstallments:d.paymentTerms==='PAGAMENTO PARCIAL'?(d.paymentInstallments||''):'',signatures:{...state.orderSignatures},lines:state.orderLines.map(l=>({...l}))}};
@@ -231,7 +251,7 @@ saveOrder = async function(e) {
 };
 document.addEventListener('click',e=>{
   const button=e.target.closest('[data-choose-client]');
-  if(button)chooseOrderClient(button.dataset.chooseClient);
+  if(button)chooseOrderClient(button.dataset.chooseClient,button.dataset.clientSource);
 });
 orders = function() {
   return `<section class="page"><h1>Encomendas</h1><button class="primary" onclick="startOrder()">+ Nova encomenda</button>
@@ -256,7 +276,7 @@ function editOrder(id) {
     paymentInstallments:document.paymentInstallments||original.paymentInstallments||'',deliveryDate:document.deliveryDate||'',notes:original.notes||''};
   state.orderLines=original.lines.map(line=>({...line}));
   state.orderSignatures={client:'',sales:'',management:'',...(document.signatures||{})};
-  state.orderMessage='';state.articleQuery='';state.clientQuery='';state.view='new-order';render();
+  state.orderClientSource=state.orderDraft.source==='new'?'new':'all';state.orderMessage='';state.articleQuery='';state.clientQuery='';state.view='new-order';render();
 }
 duplicateOrder = function(id) {
   const original=state.orders.find(o=>o.id===id);
@@ -266,7 +286,7 @@ duplicateOrder = function(id) {
     nif:original.document?.nif||'',delivery:original.delivery,paymentTerms:original.paymentTerms,notes:original.notes,
     paymentMethod:original.paymentMethod||original.document?.paymentMethod||'',
     paymentInstallments:original.paymentInstallments||original.document?.paymentInstallments||''};
-  state.orderMessage='';state.articleQuery='';state.orderSignatures={client:'',sales:'',management:''};
+  state.orderClientSource=state.orderDraft.source==='new'?'new':'all';state.orderMessage='';state.articleQuery='';state.orderSignatures={client:'',sales:'',management:''};
   state.orderLines=original.lines.map(l=>({...l}));
   state.view='new-order';render();
 };
