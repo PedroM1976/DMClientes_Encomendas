@@ -178,8 +178,9 @@ async function saveClientEdit(event,id) {
   try {
     if(!supabaseClient)throw Error('Sem ligação ao Supabase.');
     const values=Object.fromEntries(new FormData(form));
-    if(state.clients.some(c=>String(c.id)!==String(id)&&String(c.nif||'').trim()===values.nif.trim()))throw Error('Já existe outro cliente com este NIF.');
     const current=state.clients.find(c=>String(c.id)===String(id));if(!current)throw Error('Cliente não encontrado.');
+    const nifChanged=String(current.nif||'').trim()!==values.nif.trim();
+    if(nifChanged&&state.clients.some(c=>String(c.id)!==String(id)&&String(c.nif||'').trim()===values.nif.trim()))throw Error('Já existe outro cliente com este NIF.');
     button.disabled=true;message.textContent='A guardar alterações...';
     const payload=clientPayload(values,current);
     const {data,error}=await supabaseClient.from('crm_clients').update(payload).eq('id',id).select().single();
