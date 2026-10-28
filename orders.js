@@ -236,13 +236,14 @@ saveOrder = async function(e) {
       notes:d.notes||'',status:existing?.status||'Rascunho',subtotal:totals.subtotal,vat_total:totals.vat,total:totals.total,
       document:{...d,paymentInstallments:d.paymentTerms==='PAGAMENTO PARCIAL'?(d.paymentInstallments||''):'',signatures:{...state.orderSignatures},lines:state.orderLines.map(l=>({...l}))}};
     const query=editingId?supabaseClient.from('orders').update(payload).eq('id',editingId):supabaseClient.from('orders').insert(payload);
-    const {error}=await query;
+    const {data,error}=await query.select().single();
     if (error) {
       const missingTable=['42P01','PGRST205'].includes(error.code)||/could not find.*orders|relation.*orders.*does not exist/i.test(error.message);
       throw Error(error.message + (missingTable?' Execute o ficheiro supabase-orders.sql no editor SQL do Supabase.':''));
     }
-    if(editingId)state.orders=state.orders.map(order=>String(order.id)===String(editingId)?normalizeOrder(payload):order);
-    else state.orders.unshift(normalizeOrder(payload));
+    if(!data)throw Error('Não foi possível confirmar a gravação da encomenda.');
+    const savedOrder=normalizeOrder(data);
+    if(editingId)state.orders=state.orders.map(order=>String(order.id)===String(editingId)?savedOrder:order);
     state.orderLines=[];state.orderDraft={};state.orderSignatures={client:'',sales:'',management:''};state.orderMessage='';
     state.editingOrderId=null;
     state.view='orders';

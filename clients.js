@@ -214,11 +214,13 @@ function showClientLink(link) {
   dialog.querySelector('#share-client-link')?.addEventListener('click',()=>navigator.share({title:'Ficha de cliente',text:'Preencha a sua ficha de cliente da Domingos & Morgado.',url:link}));
 }
 
-function clientPayload(c,current=null) {
+function clientPayload(c,current=null,createdByEmail='') {
   const fields=['address','postal','locality','activity','cae','bank','paymentTerms','paymentMethod','mobile','contact','contactPhone','contactEmail','branch','nib','district','municipality','clientGroup','associate','financialResponsible','financialPhone','financialEmail','purchasingResponsible','purchasingPhone','purchasingEmail'];
   const existing=current?.extra_fields||{};
+  const author=current?existing.created_by_email||'':createdByEmail||state.user?.email||'';
+  const submittedVia=current?existing.submitted_via||'':'crm_portal';
   return {name:c.name.trim(),nif:c.nif.trim(),phone:c.phone.trim(),email:c.email.trim(),district:c.district||'',owner_name:c.seller||'',notes:c.notes||'',active:current?.active!==false,
-    extra_fields:{...existing,...Object.fromEntries(fields.map(k=>[k,c[k]||''])),created_by_email:existing.created_by_email||state.user?.email||''}};
+    extra_fields:{...existing,...Object.fromEntries(fields.map(k=>[k,c[k]||''])),created_by_email:author,submitted_via:submittedVia}};
 }
 saveClient = async function(e) {
   e.preventDefault();if(state.savingClient)return;const form=e.currentTarget;if(!form.reportValidity())return;
@@ -226,8 +228,10 @@ saveClient = async function(e) {
   try {
     if(!supabaseClient)throw Error('Sem ligação ao Supabase. A ficha não foi guardada.');
     if(state.clients.some(x=>String(x.nif||'').trim()===c.nif.trim()))throw Error('Já existe um cliente no CRM com este NIF.');
+    const authorEmail=String(state.user?.email||'').trim();
+    if(!authorEmail)throw Error('Não foi possível identificar o autor autenticado. Termine a sessão e entre novamente.');
     state.savingClient=true;button.disabled=true;message.textContent='A guardar a ficha no CRM...';
-    const payload=clientPayload(c);const {data,error}=await supabaseClient.from('crm_clients').insert(payload).select().single();
+    const payload=clientPayload(c,null,authorEmail);const {data,error}=await supabaseClient.from('crm_clients').insert(payload).select().single();
     if(error)throw Error(error.message);if(!data?.id)throw Error('Não foi possível confirmar a gravação.');
     state.clients.push({...data,...c,id:data.id,status:'Ativo',extra_fields:data.extra_fields||payload.extra_fields});
     state.clients.sort((a,b)=>a.name.localeCompare(b.name,'pt'));state.clientSource='crm_clients';

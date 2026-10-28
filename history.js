@@ -4,11 +4,29 @@ function historyDate(value) {
   if(!value)return '';
   return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Lisbon',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value));
 }
+function historyClientRecord(row) {
+  return state.clients.find(client=>String(client.id)===String(row.record_id));
+}
+function historyRecordType(row) {
+  if(row.source_table==='orders')return 'orders';
+  if(row.source_table!=='crm_clients')return row.source_table;
+  const record=historyClientRecord(row);
+  const submittedVia=row.submitted_via||record?.extra_fields?.submitted_via||'';
+  return submittedVia==='client_form_link'?'client_form':'crm_opening';
+}
+function historyTypeLabel(row) {
+  const type=row.history_type||historyRecordType(row);
+  return type==='orders'?'Encomenda':type==='client_form'?'Ficha de cliente':'Abertura no CRM';
+}
+function normalizeHistoryRow(row) {
+  const record=historyClientRecord(row);
+  return {...row,history_type:historyRecordType(row),actor_email:row.actor_email||record?.extra_fields?.created_by_email||''};
+}
 function filteredHistory(rows,filters) {
   const term=filters.query.trim().toLocaleLowerCase('pt');
   return rows.filter(row=>
-    (!filters.type||row.source_table===filters.type)&&
-    (!filters.user||(filters.user==='unknown'?!row.actor_id:row.actor_email===filters.user))&&
+    (!filters.type||(row.history_type||historyRecordType(row))===filters.type)&&
+    (!filters.user||(filters.user==='unknown'?!row.actor_email:row.actor_email===filters.user))&&
     (!term||String(row.record_name).toLocaleLowerCase('pt').includes(term))&&
     (!filters.from||(historyDate(row.created_at)&&historyDate(row.created_at)>=filters.from))&&
     (!filters.to||(historyDate(row.created_at)&&historyDate(row.created_at)<=filters.to))
@@ -16,10 +34,10 @@ function filteredHistory(rows,filters) {
 }
 function historyView() {
   const f=historyState.filters;
-  return `<section class="page"><h1>Histórico</h1><p>Criação de fichas de clientes e encomendas. Cada utilizador vê os seus registos; a conta comercial vê todos.</p>
+  return `<section class="page"><h1>Histórico</h1><p>Fichas enviadas pelos clientes e encomendas. Cada utilizador vê os seus registos; a conta comercial vê todos.</p>
   <button class="secondary" onclick="loadHistory()">Atualizar histórico</button>
   <p role="status">${esc(historyState.loading?'A carregar...':historyState.error)}</p>
-  <div class="toolbar"><label>Tipo<select onchange="setHistoryFilter('type',this.value)"><option value="">Todos</option><option value="crm_clients" ${f.type==='crm_clients'?'selected':''}>Fichas de clientes</option><option value="orders" ${f.type==='orders'?'selected':''}>Encomendas</option></select></label>
+  <div class="toolbar"><label>Tipo<select onchange="setHistoryFilter('type',this.value)"><option value="">Todos</option><option value="client_form" ${f.type==='client_form'?'selected':''}>Fichas de clientes</option><option value="orders" ${f.type==='orders'?'selected':''}>Encomendas</option></select></label>
   <label>Utilizador<select onchange="setHistoryFilter('user',this.value)"><option value="">Todos os disponíveis</option>
   ${[...new Set([...historyEmails,...historyState.rows.map(r=>r.actor_email).filter(Boolean)])].map(email=>`<option value="${esc(email)}" ${f.user===email?'selected':''}>${esc(email)}</option>`).join('')}
   <option value="unknown" ${f.user==='unknown'?'selected':''}>Autor não registado</option></select></label>
@@ -31,9 +49,9 @@ function historyView() {
 function historyResults() {
   const rows=filteredHistory(historyState.rows,historyState.filters);
   if(!rows.length)return '<p>Nenhum registo disponível para estes filtros.</p>';
-  return `<p>${rows.length} registo(s)</p><div class="table-wrap"><table><thead><tr><th>Data de criação</th><th>Tipo</th><th>Registo</th><th>Criado por</th><th></th></tr></thead><tbody>
+  return `<p>${rows.length} registo(s)</p><div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Registo</th><th>Autor</th><th></th></tr></thead><tbody>
   ${rows.map(r=>`<tr><td>${r.created_at?esc(new Date(r.created_at).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon'})):'Data não registada'}</td>
-  <td>${r.source_table==='orders'?'Encomenda':'Ficha de cliente'}</td><td>${esc(r.record_name)}${r.legacy?'<small>Registo anterior à ativação do histórico</small>':''}</td>
+  <td>${historyTypeLabel(r)}</td><td>${esc(r.record_name)}${r.legacy?'<small>Registo anterior à ativação do histórico</small>':''}</td>
   <td>${esc(r.actor_email||'Autor não registado')}</td><td><button class="secondary" data-history-record="${esc(r.id)}">Consultar</button></td></tr>`).join('')}
   </tbody></table></div>`;
 }
@@ -49,7 +67,7 @@ async function loadHistory() {
   try {
     const rows=await readAllRows('dm_record_history');
     if(version!==historyState.version)return;
-    historyState.rows=rows;
+    historyState.rows=rows.map(normalizeHistoryRow).filter(row=>row.history_type!=='crm_opening');
   } catch(error) {
     if(version!==historyState.version)return;
     historyState.error='Não foi possível ler o histórico. Execute historico.sql no Supabase e tente novamente. Detalhe: '+error.message;
@@ -79,7 +97,7 @@ async function viewHistoryRecord(id) {
       ['Meio de pagamento',data.document?.paymentMethod],['Observações',data.notes]
     ];
     dialog.innerHTML=`<div class="sheet-actions"><h2>${esc(event.record_name)}</h2><button onclick="document.querySelector('#history-detail').close()">Fechar</button></div>
-    <p>Autor do histórico: ${esc(event.actor_email||'Autor não registado')}</p>
+    <p>Tipo: ${historyTypeLabel(event)} · Autor: ${esc(event.actor_email||'Autor não registado')}</p>
     <dl>${fields.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value??'—')}</dd></div>`).join('')}</dl>`;
     const pdf=document.createElement('button');pdf.textContent='Visualizar / guardar PDF';pdf.className='secondary';
     if(event.source_table==='orders'&&data.document?.lines?.length){
@@ -88,7 +106,7 @@ async function viewHistoryRecord(id) {
       details.innerHTML=`<h3>Artigos</h3><table><thead><tr><th>Código</th><th>Descrição</th><th>Qtd.</th><th>Preço</th></tr></thead><tbody>${order.lines.map(l=>`<tr><td>${esc(l.code)}</td><td>${esc(l.description)}</td><td>${esc(l.qty)}</td><td>${eur(l.price)}</td></tr>`).join('')}</tbody></table>`;
       dialog.append(details);
       pdf.onclick=()=>openOrderPrint(order);
-    } else if(event.source_table==='crm_clients') {
+    } else if(event.source_table==='crm_clients'&&event.history_type==='client_form') {
       pdf.onclick=()=>openClientPrint(data);
     }
     if(pdf.onclick)dialog.append(pdf);

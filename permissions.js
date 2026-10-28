@@ -1,5 +1,5 @@
 // Interface restrictions complement the database policies, not replace them.
-let permissionUserId=null;
+let permissionUserId=null,permissionUserEmail='';
 const managedArticlesView=articles;
 articles=function(){
   if(isCommercial())return managedArticlesView();
@@ -31,7 +31,7 @@ saveArticleCategory=async function(id){
 };
 const managedAdministration=administration;
 administration=function(){return isCommercial()?managedAdministration():'<section class="page"><h1>Administração</h1><p>Área reservada à conta comercial.</p></section>';};
-function permittedHistory(rows){return isCommercial()?rows:rows.filter(r=>permissionUserId&&r.actor_id===permissionUserId);}
+function permittedHistory(rows){return isCommercial()?rows:rows.filter(r=>(permissionUserId&&r.actor_id===permissionUserId)||(permissionUserEmail&&String(r.actor_email||'').toLowerCase()===permissionUserEmail));}
 const managedHistoryFilter=filteredHistory;
 filteredHistory=function(rows,filters){return managedHistoryFilter(permittedHistory(rows),filters);};
 const managedHistoryView=historyView;
@@ -46,6 +46,7 @@ viewHistoryRecord=async function(id){
 };
 supabaseClient?.auth.onAuthStateChange((_event,session)=>{
   permissionUserId=session?.user?.id||null;
+  permissionUserEmail=String(session?.user?.email||'').toLowerCase();
   historyState.filters.user='';
   historyState.rows=permittedHistory(historyState.rows);
   const adminLink=document.querySelector('[data-view="users"]');
